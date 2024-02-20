@@ -12,7 +12,6 @@ Created on Fri Sep 16 14:46:55 2022
 
 #v2: updated the regions to include precuneus and changed the order. changed description
 # deleted some commented sections
-#v3: removed precuneus, updated naming
 
 from sklearn.mixture import GaussianMixture as GMM
 import numpy as np
@@ -26,9 +25,8 @@ import matplotlib.patches as mpatches
 
 # parameters to set/test:----------------------------------------------------
 param = 'BPnd' #'BPnd' #this is the parameter used to define normality
-#see data_cols for all params read in
-#(assume that we want to generate z-scores for R1 and BPnd (hardcoded))
-region_names =['composite','frontal','parietal','occipital','temporal','insula']
+#assume that we want to generate z-scores for R1 and BPnd (hardcoded)
+region_names =['composite','frontal','parietal','precuneus','occipital','temporal','insula']
 components_to_fit = 2
 plot_centile = 97.5
 cutoff_centile = 97.5
@@ -36,13 +34,11 @@ cutoff_centile = 97.5
 
 #input/output-----------------------------------------------------------------
 #description to add to outputs
-version_no = '3'
-desc = '1946clean_AVID2_v'+version_no+'-'+param #1946-srtm-cleanandAVID27-'+param
+desc = '1946clean_AVID2_v2-'+param #1946-srtm-cleanandAVID27-'+param
 
 #define paths
-out_folder = '/Users/catherinescott/Documents/SuStaIn_out'
-datapath = out_folder+'/csvfiles'
-outpath = out_folder+'/genZscore_out'
+datapath = '/Users/catherinescott/PycharmProjects/sustain_test/csvfiles'
+outpath = '/Users/catherinescott/PycharmProjects/sustain_test/mixturemodel_out'
 if not os.path.exists(outpath):
     os.makedirs(outpath)
 
@@ -50,9 +46,7 @@ if not os.path.exists(outpath):
 #assuming that you want to use all the csv files in the datapath folder
 datacols=['Subject', 'Session','ROI',param+'_srtm', 'R1_srtm']
 all_csv_files = glob.glob(os.path.join(datapath, "*.csv"))
-df_orig = pd.concat((pd.read_csv(f, skiprows=0,usecols=datacols) for f in all_csv_files), ignore_index=True)
-#remove nans
-df = df_orig.dropna()
+df = pd.concat((pd.read_csv(f, skiprows=0,usecols=datacols) for f in all_csv_files), ignore_index=True)
 
 #estimating Z-scores---------------------------------------------------------
 

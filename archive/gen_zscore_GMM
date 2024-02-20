@@ -10,10 +10,6 @@ Created on Fri Sep 16 14:46:55 2022
 # for R1, for each region read in the relevent csv file generated in mixturemodel.py
 # calc mean and standard deviation, then estiamte the z-scores for all subjects 
 
-#v2: updated the regions to include precuneus and changed the order. changed description
-# deleted some commented sections
-#v3: removed precuneus, updated naming
-
 from sklearn.mixture import GaussianMixture as GMM
 import numpy as np
 import pandas as pd
@@ -26,9 +22,8 @@ import matplotlib.patches as mpatches
 
 # parameters to set/test:----------------------------------------------------
 param = 'BPnd' #'BPnd' #this is the parameter used to define normality
-#see data_cols for all params read in
-#(assume that we want to generate z-scores for R1 and BPnd (hardcoded))
-region_names =['composite','frontal','parietal','occipital','temporal','insula']
+#assume that we want to generate z-scores for R1 and BPnd (hardcoded)
+region_names =['composite','frontal','parietal','insula','temporal','occipital']
 components_to_fit = 2
 plot_centile = 97.5
 cutoff_centile = 97.5
@@ -36,13 +31,11 @@ cutoff_centile = 97.5
 
 #input/output-----------------------------------------------------------------
 #description to add to outputs
-version_no = '3'
-desc = '1946clean_AVID2_v'+version_no+'-'+param #1946-srtm-cleanandAVID27-'+param
+desc = '1946-srtm-cleanandAVID27-'+param
 
 #define paths
-out_folder = '/Users/catherinescott/Documents/SuStaIn_out'
-datapath = out_folder+'/csvfiles'
-outpath = out_folder+'/genZscore_out'
+datapath = '/Users/catherinescott/PycharmProjects/sustain_test/csvfiles'
+outpath = '/Users/catherinescott/PycharmProjects/sustain_test/mixturemodel_out'
 if not os.path.exists(outpath):
     os.makedirs(outpath)
 
@@ -50,9 +43,7 @@ if not os.path.exists(outpath):
 #assuming that you want to use all the csv files in the datapath folder
 datacols=['Subject', 'Session','ROI',param+'_srtm', 'R1_srtm']
 all_csv_files = glob.glob(os.path.join(datapath, "*.csv"))
-df_orig = pd.concat((pd.read_csv(f, skiprows=0,usecols=datacols) for f in all_csv_files), ignore_index=True)
-#remove nans
-df = df_orig.dropna()
+df = pd.concat((pd.read_csv(f, skiprows=0,usecols=datacols) for f in all_csv_files), ignore_index=True)
 
 #estimating Z-scores---------------------------------------------------------
 
@@ -76,6 +67,10 @@ df_zmax.rename(columns={0: 'Region', 1: 'R1 z_max' , 2 : 'BPnd z_max', 3:'BPnd z
 
 for region in region_names:
 
+    # if region == region_names[0]:
+    #     #on the first round create the output dataframe with subject column
+    #     df_region = df.loc[(df['Session']=='baseline') & (df['ROI']==region),['Subject']]
+    #     df_out['Subject']=df_region['Subject']
         
     print('Processing '+ region+'--------------------------------------------')    
 
@@ -115,6 +110,11 @@ for region in region_names:
     
     grid = np.arange(np.min(X), np.max(X), 0.01)
     
+    # #plot standard histogram (normalised)
+    # _ = plt.figure(image_counter)
+    # _ = plt.hist(X, bins=100, density=True, alpha=0.2)
+    # #plot sum of fitted values
+    # _ = plt.plot(grid, mix_pdf(grid, mu, sigma, pi), label='sum', c=cmap(0))
     #plot individual components
     print('N components ='+str(components))
     
@@ -124,7 +124,33 @@ for region in region_names:
     sigma = sigma[arr1inds[:]]
     pi = pi[arr1inds[:]]
     
- 
+    # for i in range(components):
+        
+    #     # _ = plt.plot(grid, single_pdf(grid, mu, sigma, pi, i),'--',c = cmap(i+1), label='group '+str(i))
+
+    #     print('Group '+str(i))
+    #     lower_cent = mu[i]-(plot_factor*sigma[i])
+    #     upper_cent = mu[i]+(plot_factor*sigma[i])
+    #     print(str(100-plot_centile)+'st percentile='+str(lower_cent)+', '+str(plot_centile)+'th percentile='+str(upper_cent))
+        # left, bottom, width, height = (lower_cent, 0, upper_cent-lower_cent, 7)
+        # rect=mpatches.Rectangle((left,bottom),width,height, 
+        #                 #fill=False,
+        #                 alpha=0.03,
+        #                facecolor= cmap(i+1))#,
+        #                #linewidth=2, color=cmap(i+1))
+        # plt.gca().add_patch(rect)
+        # _ = plt.plot([lower_cent,lower_cent],[0,7],':',c = cmap(i+1),alpha=0.3)
+        # _ = plt.plot([upper_cent,upper_cent],[0,7],':',c = cmap(i+1),alpha=0.3)
+        
+    #plt.scatter(X, [0.01]*X.shape[0], c=labels, cmap='viridis')
+
+    # _ = plt.legend(loc='upper right')
+    # _ = plt.xlabel(region+' '+param)  
+    # _ = plt.ylabel('Probability density')  
+    # _ = plt.title('Gaussian mixture model with '+str(components)+
+    #               ' components (BIC='+str(round(gmm.bic(X),1))+', AIC='+str(round(gmm.aic(X),1))+')')
+    # plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ str(components)+'component_'+desc+'.pdf'))
+    
     #determine whether subjects are controls or not (data is sorted so that group 0 is minimum)
     upper_cent = mu[0]+(cutoff_factor*sigma[0])#99th percentile 2.33, 97.5th percentile 1.960
     print('BPnd cut-off used for '+region+' = '+str(upper_cent))       

@@ -5,9 +5,6 @@ Created on Tue Oct 25 10:59:14 2022
 
 @author: catherinescott
 """
-# v3: not baackwards compatible: changed out_desc to automatically populate based on include_biomarkers
-# this means that file names will be different. Initial version imported into GIT
-
 import numpy as np
 import pandas
 import os
@@ -19,27 +16,17 @@ import pickle
 from pathlib import Path
 import sklearn.model_selection
 
-include_biomarkers = ['R1','BPnd']#['R1', 'BPnd']
-# test or run
-test_run = 'test' # either 'test' or 'run' determines SuStaIn settings
-
-in_desc = '1946clean_AVID2_v3'
-out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run #in_desc+'-GMM_R1BP_long'
-dataset_name = out_desc
-#this is the folder where it will save the results
+in_desc = '1946-srtm-cleanandAVID27'
+out_desc = in_desc+'-GMM_BP_long' #in_desc+'-GMM_R1BP_long'
+dataset_name = 'R1BPnd'+out_desc
 out_path = '/Users/catherinescott/Documents/SuStaIn_out/'
-output_folder = os.path.join(out_path,'SuStaIn_crossvalandanalysis', dataset_name)
-if not os.path.isdir(output_folder):
-    os.makedirs(output_folder)  
-#this is the folder where it reads the pickle files from
-pickle_path = os.path.join(out_path,'run_SuStaIn_GMM',out_desc)
-#this where it reads the rest of the data from
-datapath = out_path+'/genZscore_out'
+output_folder = os.path.join(out_path, dataset_name)
+datapath = out_path+'/mixturemodel_out'
 csvfile_in = datapath+'/zscore_allregions_2component_'+in_desc+'-BPnd_co97.5th.csv'
 
 #determining regions and biomarkers to include in modelling
 include_regions = ['frontal','parietal','temporal','insula','occipital']
-
+include_biomarkers = ['BPnd']#['R1', 'BPnd']
 region_names=[]
 #create list to take values from csv files
 for b in include_biomarkers:
@@ -106,24 +93,12 @@ Z_max = np.array(Z_max).flatten()
 
 
 # Input the settings for z-score SuStaIn
-N_S_max = 4  #max number of subtypes to fit
-if test_run == 'test':    
-    print('Running with test params:') 
-    N_startpoints = 10 #25 recommended, 10 for testing
-    N_iterations_MCMC = int(1e4) #int(1e5) or int(1e6) recommended, 1e4 for testing
-    print(str(N_startpoints)+' starting points, '+str(N_iterations_MCMC)+' MCMC iterations')
-elif test_run == 'run': 
-    print('Running with run params:') 
-    N_startpoints = 25 #25 recommended, 10 for testing
-    N_iterations_MCMC = int(1e6) #int(1e5) or int(1e6) recommended, 1e4 for testing
-    print(str(N_startpoints)+' starting points, '+str(N_iterations_MCMC)+' MCMC iterations')
-else:
-    print('Test or run not given, assume test...')
-    N_startpoints = 10 #25 recommended, 10 for testing
-    N_iterations_MCMC = int(1e4) #int(1e5) or int(1e6) recommended, 1e4 for testing
-    print(str(N_startpoints)+' starting points, '+str(N_iterations_MCMC)+' MCMC iterations')
-    
 
+N_startpoints = 25 #25 recommended, 10 for testing
+N_S_max = 4  #max number of subtypes to fit
+N_iterations_MCMC = int(1e6) #int(1e5) or int(1e6) recommended, 1e4 for testing
+#dataset_name = 'R1BPnd'+out_desc
+#output_folder = os.path.join(os.getcwd(), dataset_name)
 SuStaInLabels = region_names
 
 sustain_input = pySuStaIn.ZscoreSustain(data,
@@ -133,7 +108,7 @@ sustain_input = pySuStaIn.ZscoreSustain(data,
                               N_startpoints,
                               N_S_max, 
                               N_iterations_MCMC, 
-                              pickle_path, 
+                              output_folder, 
                               dataset_name, 
                               False)
 
@@ -142,10 +117,9 @@ sustain_input = pySuStaIn.ZscoreSustain(data,
 
 M = len(zdata) 
 
-#set the number of subtypes (s = n_subtypes-1)
 s=2
 
-pickle_filename_s = pickle_path + '/pickle_files/' + dataset_name + '_subtype' + str(s) + '.pickle'
+pickle_filename_s = output_folder + '/pickle_files/' + dataset_name + '_subtype' + str(s) + '.pickle'
 pk = pandas.read_pickle(pickle_filename_s)
 
 # let's take a look at all of the things that exist in SuStaIn's output (pickle) file

@@ -7,7 +7,7 @@ Created on Thu Jun 23 13:01:01 2022
 """
 # v2: changed region names and description to match gen_zscore_GMM_v2
 # v3: improving naming to make it clearer and more automated. Added test run parameters
-
+# v4: removing the 'super controls' prior to running sustain
 import numpy as np
 import pandas as pd
 import os
@@ -18,7 +18,7 @@ from pathlib import Path
 
 
 #determining regions and biomarkers to include in modelling
-include_regions = ['frontal','parietal','occipital','temporal','insula']#['frontal','parietal','temporal','insula','occipital']
+include_regions = ['composite','frontal','parietal','occipital','temporal','insula']#['frontal','parietal','temporal','insula','occipital']
 include_biomarkers = ['R1', 'BPnd']
 
 # test or run
@@ -27,7 +27,7 @@ test_run = 'test' # either 'test' or 'run' determines SuStaIn settings
 ## data in--------------------------------------------------------------------
 #descriptions to use for input and output data
 in_desc = '1946clean_AVID2_v3'#'1946-srtm-cleanandAVID27'
-out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run
+out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_v4'
 
 
 region_names=[]
@@ -46,9 +46,26 @@ csvfile_in = datapath+'/genZscore_out/zscore_allregions_2component_'+in_desc+'-B
 #doesnt skip the header row so that the biomarkers can be ordered according to region_names
 #(header row removed in conversion to numpy)
 df = pd.read_csv(csvfile_in, usecols=region_names)[region_names]
+# remove super controls (keep anyone whose composite BPnd is greater that 1 SD below the control mean)
+df = df[df.composite_BPnd_z >= -1.0]
+#remove composite columns
+df = df.drop(['composite_BPnd_z', 'composite_R1_z'], axis=1)
+
+#redo region names (bit clunky, should probably jst read in composite BPnd manually then remove)
+include_regions = include_regions[1:]
+region_names=[]
+#create list to take values from csv files
+for b in include_biomarkers:
+    for rg in include_regions:
+    
+        region_names.append(rg+'_'+b+'_z')
+
+
 data = df.to_numpy()
 #remove nans
 data = data[~np.isnan(data).any(axis=1)]
+
+
 
 #output naming and folders
 dataset_name = out_desc

@@ -5,11 +5,16 @@ Created on Tue Oct 25 10:59:14 2022
 
 @author: catherinescott
 """
+
+# version control
+# v1 copied from v3 of kinetic version
+
+#previous version control:
 # v3: not baackwards compatible: changed out_desc to automatically populate based on include_biomarkers
 # this means that file names will be different. Initial version imported into GIT
 
 import numpy as np
-import pandas
+import pandas as pd
 import os
 import seaborn as sns
 #import nibabel as nib
@@ -19,26 +24,42 @@ import pickle
 from pathlib import Path
 import sklearn.model_selection
 
-include_biomarkers = ['R1','BPnd']#['R1', 'BPnd']
+include_biomarkers = ['amyloid']#['flow','amyloid']#['R1', 'BPnd']
 # test or run
-test_run = 'test' # either 'test' or 'run' determines SuStaIn settings
+test_run = 'run' # either 'test' or 'run' determines SuStaIn settings
+cmmt=''
 
-in_desc = '1946clean_AVID2_v3'
-out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run #in_desc+'-GMM_R1BP_long'
+#remove subjects which were previously put in stage 0?
+remove_zero_subs = 'yes' #either yes or no
+
+in_desc = '1946AVID2YOADSUVR_v1' #'1946clean_AVID2_v3'
+
+if remove_zero_subs=='yes':
+    out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+'removezero_v1'
+else:
+    out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+'_v1'
+    
+
+
 dataset_name = out_desc
 #this is the folder where it will save the results
 out_path = '/Users/catherinescott/Documents/SuStaIn_out/'
 output_folder = os.path.join(out_path,'SuStaIn_crossvalandanalysis', dataset_name)
 if not os.path.isdir(output_folder):
     os.makedirs(output_folder)  
+    
 #this is the folder where it reads the pickle files from
 pickle_path = os.path.join(out_path,'run_SuStaIn_GMM',out_desc)
+
+
 #this where it reads the rest of the data from
 datapath = out_path+'/genZscore_out'
-csvfile_in = datapath+'/zscore_allregions_2component_'+in_desc+'-BPnd_co97.5th.csv'
+csvfile_in = datapath+'/zscore_allregions_2component_'+in_desc+'-amyloid_co97.5th.csv'
+if remove_zero_subs=='yes':
+    csvfile_in = csvfile_in[:len(csvfile_in)-4] + '_removezero' + csvfile_in[len(csvfile_in)-4:]
 
 #determining regions and biomarkers to include in modelling
-include_regions = ['frontal','parietal','temporal','insula','occipital']
+include_regions = ['frontal','parietal','precuneus','occipital','temporal','insula'] #['frontal','parietal','temporal','insula','occipital']
 
 region_names=[]
 #create list to take values from csv files
@@ -52,15 +73,17 @@ for b in include_biomarkers:
 #load in data (size M subjects by N biomarkers, data must be z-scored)
 #doesnt skip the header row so that the biomarkers can be ordered according to region_names
 #(header row removed in conversion to numpy)
-df = pandas.read_csv(csvfile_in, usecols=region_names)[region_names]
-subjs= pandas.read_csv(csvfile_in, usecols=['Subject'])
-status= pandas.read_csv(csvfile_in, usecols=['Status'])
+# if we want to get rid of subjects in stage zero
+    
+df = pd.read_csv(csvfile_in, usecols=region_names)[region_names]
+subjs= pd.read_csv(csvfile_in, usecols=['Subject'])
+status= pd.read_csv(csvfile_in, usecols=['Status'])
 
 data = df.to_numpy()
 #remove nans
 nonNaN_subjects = ~np.isnan(data).any(axis=1)
 data = data[nonNaN_subjects]
-zdata = pandas.DataFrame(data,columns= list(df.columns))
+zdata = pd.DataFrame(data,columns= list(df.columns))
 #subj_IDs = df.loc[:,]
 zdata['Subject'] = subjs[nonNaN_subjects].reset_index(drop=True)
 zdata['Status'] = status[nonNaN_subjects].reset_index(drop=True)
@@ -70,8 +93,8 @@ zdata.replace('CTL',0,inplace=True)
 zdata.replace('PT',1,inplace=True)
 
 ##set params------------------------------------------------------------------
-z_lims_csv = datapath+'/zmax_allregions_2component_'+in_desc+'-BPnd_co97.5th.csv' 
-z_lims_df = pandas.read_csv(z_lims_csv)
+z_lims_csv = datapath+'/zmax_allregions_2component_'+in_desc+'-amyloid_co97.5th.csv' 
+z_lims_df = pd.read_csv(z_lims_csv)
 #only include the listed regions
 z_lims_df = z_lims_df[z_lims_df['Region'].isin(include_regions)]
 #reset the index
@@ -106,7 +129,7 @@ Z_max = np.array(Z_max).flatten()
 
 
 # Input the settings for z-score SuStaIn
-N_S_max = 4  #max number of subtypes to fit
+N_S_max = 3  #max number of subtypes to fit
 if test_run == 'test':    
     print('Running with test params:') 
     N_startpoints = 10 #25 recommended, 10 for testing
@@ -115,7 +138,7 @@ if test_run == 'test':
 elif test_run == 'run': 
     print('Running with run params:') 
     N_startpoints = 25 #25 recommended, 10 for testing
-    N_iterations_MCMC = int(1e6) #int(1e5) or int(1e6) recommended, 1e4 for testing
+    N_iterations_MCMC = int(1.5e5) #int(1e5) or int(1e6) recommended, 1e4 for testing
     print(str(N_startpoints)+' starting points, '+str(N_iterations_MCMC)+' MCMC iterations')
 else:
     print('Test or run not given, assume test...')
@@ -143,10 +166,10 @@ sustain_input = pySuStaIn.ZscoreSustain(data,
 M = len(zdata) 
 
 #set the number of subtypes (s = n_subtypes-1)
-s=2
+s=N_S_max-1
 
 pickle_filename_s = pickle_path + '/pickle_files/' + dataset_name + '_subtype' + str(s) + '.pickle'
-pk = pandas.read_pickle(pickle_filename_s)
+pk = pd.read_pickle(pickle_filename_s)
 
 # let's take a look at all of the things that exist in SuStaIn's output (pickle) file
 pk.keys()
@@ -173,6 +196,9 @@ zdata.loc[:,'ml_subtype'] = zdata.ml_subtype.values + 1
 # convert "Stage 0" subjects to subtype 0
 zdata.loc[zdata.ml_stage==0,'ml_subtype'] = 0
 
+#can use this to re-run and exclude
+stagezerosubs = zdata.loc[zdata.ml_stage==0,'Subject']
+#stagezerosubs.to_csv(output_folder+'stagezerosubjs.csv')
 
 zdata.ml_subtype.value_counts()
 
@@ -216,7 +242,7 @@ cv_it = cv.split(zdata, labels)
 test_idxs = []
 for train, test in cv_it:
     test_idxs.append(test)
-test_idxs = np.array(test_idxs,dtype='object')
+test_idxs = np.array(test_idxs,dtype='object') #'int')
 
 # perform cross-validation and output the cross-validation information criterion and
 # log-likelihood on the test set for each subtypes model and fold combination
@@ -237,7 +263,7 @@ plt.savefig(os.path.join(output_folder,'CVIC_'+out_desc+'.pdf'))
 
 
 plt.figure()
-df_loglike = pandas.DataFrame(data = loglike_matrix, columns = ["s_" + str(i) for i in range(sustain_input.N_S_max)])
+df_loglike = pd.DataFrame(data = loglike_matrix, columns = ["s_" + str(i) for i in range(sustain_input.N_S_max)])
 df_loglike.boxplot(grid=False)
 plt.ylabel('Log likelihood')  
 plt.xlabel('Subtypes model') 
@@ -258,3 +284,6 @@ for i in range(N_S_max):
     sustain_input.combine_cross_validated_sequences(N_S_selected, N_folds)
     _ = plt.suptitle('Cross-validated SuStaIn output')
     plt.savefig(os.path.join(output_folder,'CV_positionalvariance_s'+str(N_S_selected)+out_desc+'.pdf'))
+    
+    
+    
