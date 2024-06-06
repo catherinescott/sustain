@@ -15,7 +15,7 @@ Created on Fri Sep 16 14:46:55 2022
 #v1: copied from gen_zscore_GMM_v3.py to be adapted for SUVR data
 #didnt change the version but on 26/1/24 I changed the number of subject per z level to 15
 #and added plots
-
+#v2: looking at merging baseline and follup for 1946 and using 4i2mm reconstruction
 
 from sklearn.mixture import GaussianMixture as GMM
 import numpy as np
@@ -40,12 +40,13 @@ cutoff_centile = 97.5
 
 #input/output-----------------------------------------------------------------
 #description to add to outputs
-version_no = '1'
+version_no = '2'
 desc = '1946AVID2YOADSUVR_v'+version_no+'-'+param #1946-srtm-cleanandAVID27-'+param
+data_merge_opt = 'all' # 'baseline'
 
 #define paths
 out_folder = '/Users/catherinescott/Documents/SuStaIn_out'
-datapath = '/Users/catherinescott/Documents/SUVR_spreadsheets/opt_10iPSFnoF/csv_to_use'
+datapath = '/Users/catherinescott/Documents/python_IO_files/input_csv_files/SUVR_spreadsheets/opt_4i2mm/suvr-nipet-pct-gif-gm-cereb'
 outpath = out_folder+'/genZscore_out'
 if not os.path.exists(outpath):
     os.makedirs(outpath)
@@ -54,9 +55,9 @@ if not os.path.exists(outpath):
 #assuming that you want to use all the csv files in the datapath folder
 #and early and late csvs are in the same folder
 #datacols=['Subject', 'Session','ROI',param+'_srtm', 'R1_srtm']
-datacols = ['subject']+region_names
-all_early_csv_files = glob.glob(os.path.join(datapath, "ses-baseline_0p0to2*.csv"))
-all_late_csv_files = glob.glob(os.path.join(datapath, "ses-baseline_40p0to*.csv"))
+datacols = ['subject','session']+region_names
+all_early_csv_files = glob.glob(os.path.join(datapath, "ses-*0p0to2*.csv"))
+all_late_csv_files = glob.glob(os.path.join(datapath, "ses-*40p0to*.csv"))
 
 #read in early files and rename suvr cols
 #*note that SUVR files have lowercase 's' for subject, changed to uppercase to match kinetic params
@@ -67,6 +68,7 @@ df_early = df_orig.dropna()
 df_early = df_early.add_suffix('_flow')
 #remove flow from subject column and change to capital S
 df_early.rename(columns={'subject_flow':'Subject'}, inplace=True)
+df_early.rename(columns={'session_flow':'Session'}, inplace=True)
 
 #read in late files and rename suvr cols
 df_orig = pd.concat((pd.read_csv(f, skiprows=0,usecols=datacols) for f in all_late_csv_files), ignore_index=True)
@@ -74,9 +76,22 @@ df_orig = pd.concat((pd.read_csv(f, skiprows=0,usecols=datacols) for f in all_la
 df_late = df_orig.dropna()
 df_late = df_late.add_suffix('_amyloid')
 df_late.rename(columns={'subject_amyloid':'Subject'}, inplace=True)
+df_late.rename(columns={'session_amyloid':'Session'}, inplace=True)
 
 #merge flow and amyloid markers into single dataframe. Get rid of any that dont have both biomarkers
-df = pd.merge(df_early, df_late, on='Subject')
+#need to merge on subject and session to avoid mixing baselines and followups for 1946
+df = pd.merge(df_early, df_late, on=['Subject','Session'])
+
+#options for handling follow up data: option 1- include followup data for subjects where baseline is missing, option 2-only keep baseline data 
+
+if data_merge_opt=='all':
+    duplicated_df = df[df.duplicated(['Subject'], keep=False)]
+    idx_to_remove=duplicated_df.index[duplicated_df['Session'] == 'followup'].tolist()
+    df.drop(idx_to_remove, inplace=True)
+elif data_merge_opt=='baseline':
+    idx_to_remove=df.index[df['Session'] == 'followup'].tolist()
+    df.drop(idx_to_remove, inplace=True)    
+
 
 #estimating Z-scores---------------------------------------------------------
 
