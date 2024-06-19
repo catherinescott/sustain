@@ -38,8 +38,8 @@ cutoff_centile = 97.5
 version_no = '1'
 ref_region = 'gm-cereb' # options: 'cereb', 'gm-cereb'
 PVC_flag = '' # options: 'pvc-', ''
-desc = '1946AVID2YOADSUVR_v'+version_no+'-'+param+'-'+PVC_flag+ref_region #1946-srtm-cleanandAVID27-'+param
-data_merge_opt = 'followupplus' # 'followupplus' 'baseline'
+desc = '1946AVID2YOADSUVR_v'+version_no+'-'+PVC_flag+ref_region #1946-srtm-cleanandAVID27-'+param
+data_merge_opt = 'baseline' # 'followupplus' 'baseline'
 
 #define paths
 out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_out'
@@ -81,7 +81,7 @@ df_late.rename(columns={'session_amyloid':'Session'}, inplace=True)
 #need to merge on subject and session to avoid mixing baselines and followups for 1946
 df = pd.merge(df_early, df_late, on=['Subject','Session'])
 #save a csv file which has all the avilable data in
-df.to_csv(os.path.join(outpath, 'all_sustain_raw.csv'))
+df.to_csv(os.path.join(outpath, desc+'_all_sustain_raw.csv'))
 
 #options for handling follow up data: option 1- include followup data for subjects where baseline is missing, option 2-only keep baseline data 
 
@@ -98,7 +98,7 @@ elif data_merge_opt=='followuppplus': #discards teh baseline for subjects wh hav
     df.drop(idx_to_remove, inplace=True)
     
 #save dataframe of data to be fitted using sustain
-df.to_csv(os.path.join(outpath, data_merge_opt+'_sustain_raw.csv'))
+df.to_csv(os.path.join(outpath, desc+'_'+data_merge_opt+'_sustain_raw.csv'))
 
 # #PART B: create a dataframe contain all the subjects who will be part of the normal database to calculate z-scores-------------------
 
