@@ -39,12 +39,12 @@ version_no = '1'
 ref_region = 'gm-cereb' # options: 'cereb', 'gm-cereb'
 PVC_flag = '' # options: 'pvc-', ''
 desc = '1946AVID2YOADSUVR_v'+version_no+'-'+PVC_flag+ref_region #1946-srtm-cleanandAVID27-'+param
-data_merge_opt = 'baseline' # 'followupplus' 'baseline'
+data_merge_opt = 'baselineplus' # 'followupplus' 'baseline' 'baselineplus' 'all'
 
 #define paths
-out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_out'
+out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
 datapath = '/Users/catherinescott/Documents/python_IO_files/input_csv_files/SUVR_spreadsheets/opt_4i2mm/suvr-'+PVC_flag+'nipet-pct-gif-'+ref_region
-outpath = out_folder+'/SUVR_data_merge_out'
+outpath = out_folder+'/SUVR_data_merge_out/'+ref_region
 if not os.path.exists(outpath):
     os.makedirs(outpath)
     
@@ -96,6 +96,9 @@ elif data_merge_opt=='followuppplus': #discards teh baseline for subjects wh hav
     duplicated_df = df[df.duplicated(['Subject'], keep=False)]
     idx_to_remove=duplicated_df.index[duplicated_df['Session'] == 'baseline'].tolist()
     df.drop(idx_to_remove, inplace=True)
+elif data_merge_opt=='all':
+    #do nothing
+    print('using all the data')
     
 #save dataframe of data to be fitted using sustain
 df.to_csv(os.path.join(outpath, desc+'_'+data_merge_opt+'_sustain_raw.csv'))
