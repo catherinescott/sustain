@@ -16,6 +16,7 @@ Created on Thu Jun  6 10:46:30 2024
 import os
 import glob
 import pandas as pd
+import sys
 # import numpy as np
 # from scipy.stats import norm
 # import matplotlib.pyplot as plt
@@ -32,76 +33,90 @@ components_to_fit = 2
 plot_centile = 97.5
 cutoff_centile = 97.5
 
-
-#input/output-----------------------------------------------------------------
-#description to add to outputs
-version_no = '1'
-ref_region = 'gm-cereb' # options: 'cereb', 'gm-cereb'
-PVC_flag = '' # options: 'pvc-', ''
-desc = '1946AVID2YOADSUVR_v'+version_no+'-'+PVC_flag+ref_region #1946-srtm-cleanandAVID27-'+param
-data_merge_opt = 'baselineplus' # 'followupplus' 'baseline' 'baselineplus' 'all'
-
-#define paths
-out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
-datapath = '/Users/catherinescott/Documents/python_IO_files/input_csv_files/SUVR_spreadsheets/opt_4i2mm/suvr-'+PVC_flag+'nipet-pct-gif-'+ref_region
-outpath = out_folder+'/SUVR_data_merge_out/'+ref_region
-if not os.path.exists(outpath):
-    os.makedirs(outpath)
-    
-#load in the csv file comtaining the suvr parameters for each subject
-#assuming that you want to use all the csv files in the datapath folder
-#and early and late csvs are in the same folder
-#datacols=['Subject', 'Session','ROI',param+'_srtm', 'R1_srtm']
-datacols = ['subject','session']+region_names
-all_early_csv_files = glob.glob(os.path.join(datapath, "ses-*0p0to2*.csv"))
-all_late_csv_files = glob.glob(os.path.join(datapath, "ses-*40p0to*.csv"))
-
-#read in early files and rename suvr cols
-#*note that SUVR files have lowercase 's' for subject, changed to uppercase to match kinetic params
-df_orig = pd.concat((pd.read_csv(f, skiprows=0,usecols=datacols) for f in all_early_csv_files), ignore_index=True)
-#remove nans
-df_early = df_orig.dropna()
-#add the name flow to all columns to distinguish from amyloid
-df_early = df_early.add_suffix('_flow')
-#remove flow from subject column and change to capital S
-df_early.rename(columns={'subject_flow':'Subject'}, inplace=True)
-df_early.rename(columns={'session_flow':'Session'}, inplace=True)
-
-#read in late files and rename suvr cols
-df_orig = pd.concat((pd.read_csv(f, skiprows=0,usecols=datacols) for f in all_late_csv_files), ignore_index=True)
-#remove nans
-df_late = df_orig.dropna()
-df_late = df_late.add_suffix('_amyloid')
-df_late.rename(columns={'subject_amyloid':'Subject'}, inplace=True)
-df_late.rename(columns={'session_amyloid':'Session'}, inplace=True)
+ref_regions = ['cereb', 'gm-cereb']
+PVC_flags = ['pvc-' ,'']
+data_merge_opts = ['followupplus', 'baseline', 'baselineplus', 'all'] 
 
 
-#PART A: creaate a dataframe for all the subjects who will have SUSTAIN modelling ------------------------------------------------------
-#merge flow and amyloid markers into single dataframe. Get rid of any that dont have both biomarkers
-#need to merge on subject and session to avoid mixing baselines and followups for 1946
-df = pd.merge(df_early, df_late, on=['Subject','Session'])
-#save a csv file which has all the avilable data in
-df.to_csv(os.path.join(outpath, desc+'_all_sustain_raw.csv'))
-
-#options for handling follow up data: option 1- include followup data for subjects where baseline is missing, option 2-only keep baseline data 
-
-if data_merge_opt=='baselineplus': #discards followup for  all those who have baseline data
-    duplicated_df = df[df.duplicated(['Subject'], keep=False)]
-    idx_to_remove=duplicated_df.index[duplicated_df['Session'] == 'followup'].tolist()
-    df.drop(idx_to_remove, inplace=True)
-elif data_merge_opt=='baseline': # keeps only the baseine data
-    idx_to_remove=df.index[df['Session'] == 'followup'].tolist()
-    df.drop(idx_to_remove, inplace=True)    
-elif data_merge_opt=='followuppplus': #discards teh baseline for subjects wh have followup
-    duplicated_df = df[df.duplicated(['Subject'], keep=False)]
-    idx_to_remove=duplicated_df.index[duplicated_df['Session'] == 'baseline'].tolist()
-    df.drop(idx_to_remove, inplace=True)
-elif data_merge_opt=='all':
-    #do nothing
-    print('using all the data')
-    
-#save dataframe of data to be fitted using sustain
-df.to_csv(os.path.join(outpath, desc+'_'+data_merge_opt+'_sustain_raw.csv'))
+for ref_region in ref_regions:
+    for PVC_flag in PVC_flags:
+        for data_merge_opt in data_merge_opts:
+            
+            print('Running: ref: '+ref_region+', PVC: '+PVC_flag+', datamerge: '+data_merge_opt)
+            
+            
+            #input/output-----------------------------------------------------------------
+            #description to add to outputs
+            version_no = '1'
+            #ref_region = 'gm-cereb' # options: 'cereb', 'gm-cereb'
+            #PVC_flag = 'pvc-' # options: 'pvc-', ''
+            desc = '1946AVID2YOADSUVR_v'+version_no+'-'+PVC_flag+ref_region #1946-srtm-cleanandAVID27-'+param
+            #data_merge_opt = 'followupplus' # 'followupplus' 'baseline' 'baselineplus' 'all'
+            
+            #define paths
+            out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
+            datapath = '/Users/catherinescott/Documents/python_IO_files/input_csv_files/SUVR_spreadsheets/opt_4i2mm/suvr-'+PVC_flag+'nipet-pct-gif-'+ref_region
+            outpath = out_folder+'/SUVR_data_merge_out/'+PVC_flag+ref_region
+            if not os.path.exists(outpath):
+                os.makedirs(outpath)
+                
+            #load in the csv file comtaining the suvr parameters for each subject
+            #assuming that you want to use all the csv files in the datapath folder
+            #and early and late csvs are in the same folder
+            #datacols=['Subject', 'Session','ROI',param+'_srtm', 'R1_srtm']
+            datacols = ['subject','session']+region_names
+            all_early_csv_files = glob.glob(os.path.join(datapath, "ses-*0p0to2*.csv"))
+            all_late_csv_files = glob.glob(os.path.join(datapath, "ses-*40p0to*.csv"))
+            
+            #read in early files and rename suvr cols
+            #*note that SUVR files have lowercase 's' for subject, changed to uppercase to match kinetic params
+            df_orig = pd.concat((pd.read_csv(f, skiprows=0,usecols=datacols) for f in all_early_csv_files), ignore_index=True)
+            #remove nans
+            df_early = df_orig.dropna()
+            #add the name flow to all columns to distinguish from amyloid
+            df_early = df_early.add_suffix('_flow')
+            #remove flow from subject column and change to capital S
+            df_early.rename(columns={'subject_flow':'Subject'}, inplace=True)
+            df_early.rename(columns={'session_flow':'Session'}, inplace=True)
+            
+            #read in late files and rename suvr cols
+            df_orig = pd.concat((pd.read_csv(f, skiprows=0,usecols=datacols) for f in all_late_csv_files), ignore_index=True)
+            #remove nans
+            df_late = df_orig.dropna()
+            df_late = df_late.add_suffix('_amyloid')
+            df_late.rename(columns={'subject_amyloid':'Subject'}, inplace=True)
+            df_late.rename(columns={'session_amyloid':'Session'}, inplace=True)
+            
+            
+            #PART A: creaate a dataframe for all the subjects who will have SUSTAIN modelling ------------------------------------------------------
+            #merge flow and amyloid markers into single dataframe. Get rid of any that dont have both biomarkers
+            #need to merge on subject and session to avoid mixing baselines and followups for 1946
+            df = pd.merge(df_early, df_late, on=['Subject','Session'])
+            #save a csv file which has all the avilable data in
+            df.to_csv(os.path.join(outpath, desc+'_all_sustain_raw.csv'))
+            
+            #options for handling follow up data: option 1- include followup data for subjects where baseline is missing, option 2-only keep baseline data 
+            
+            if data_merge_opt=='baselineplus': #discards followup for  all those who have baseline data
+                duplicated_df = df[df.duplicated(['Subject'], keep=False)]
+                idx_to_remove=duplicated_df.index[duplicated_df['Session'] == 'followup'].tolist()
+                df.drop(idx_to_remove, inplace=True)
+            elif data_merge_opt=='baseline': # keeps only the baseine data
+                idx_to_remove=df.index[df['Session'] == 'followup'].tolist()
+                df.drop(idx_to_remove, inplace=True)    
+            elif data_merge_opt=='followupplus': #discards teh baseline for subjects wh have followup
+                duplicated_df = df[df.duplicated(['Subject'], keep=False)]
+                idx_to_remove=duplicated_df.index[duplicated_df['Session'] == 'baseline'].tolist()
+                df.drop(idx_to_remove, inplace=True)
+            elif data_merge_opt=='all':
+                #do nothing
+                print('using all the data')
+            else:
+                print('invalid data_merge_opt')
+                sys.exit(1)
+                
+            #save dataframe of data to be fitted using sustain
+            df.to_csv(os.path.join(outpath, desc+'_'+data_merge_opt+'_sustain_raw.csv'))
 
 # #PART B: create a dataframe contain all the subjects who will be part of the normal database to calculate z-scores-------------------
 
