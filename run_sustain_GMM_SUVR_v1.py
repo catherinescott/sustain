@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Thu Jun 23 13:01:01 2022
 
-@author: catherinescott
-"""
 # v2: changed region names and description to match gen_zscore_GMM_v2
 # v3: improving naming to make it clearer and more automated. Added test run parameters
 
@@ -22,15 +18,17 @@ from pathlib import Path
 
 #determining regions and biomarkers to include in modelling (will only be included if there is also sufficient data i.e 2 component GMM)
 include_regions = ['frontal','parietal','precuneus','occipital','temporal','insula'] #['frontal','parietal','precuneus','occipital','temporal','insula']#['composite','frontal','parietal','occipital','temporal','insula']#['frontal','parietal','temporal','insula','occipital']
+#include_regions = ['frontal', 'parietal','occipital', 'temporal','insula', 'precuneus']
 
-ref_regions = ['cereb']#['cereb', 'gm-cereb']
-PVC_flags = ['pvc-']#['pvc-' ,'']
-data_merge_opts = ['followupplus'] 
-include_biomarker_list = [['flow']]#[['flow'],['amyloid'],['flow','amyloid']]
+
+ref_regions = ['gm-cereb','cereb'] #['cereb']#
+PVC_flags = ['pvc-', '']#['pvc-' ,'']
+data_merge_opts = ['followupplus'] #['followupplus', 'baseline', 'baselineplus', 'all'] 
+include_biomarker_list = [['amyloid','flow'],['amyloid'],['flow']]#[['flow'],['amyloid'],['flow','amyloid']]
 #include_biomarkers = ['flow'] #['flow', 'amyloid']
 
 
-#FOR SOME REASON THE LOOP DOESNT CURRENTLY WORK, BUT RUNNING INDIVIDUALLY DOES
+#FOR SOME REASON AMYLOID DOESNT CURRENTLY WORK
 for ref_region in ref_regions:
     for PVC_flag in PVC_flags:
         for data_merge_opt in data_merge_opts:
@@ -59,12 +57,12 @@ for ref_region in ref_regions:
                     out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+'_v1'
                 
                 
-                region_names=[]
+                all_region_names=[]
                 #create list to take values from csv files
                 for b in include_biomarkers:
                     for rg in include_regions:
                     
-                        region_names.append(rg+'_'+b+'_z')
+                        all_region_names.append(rg+'_'+b+'_z')
                         
                 #define paths
                 out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
@@ -94,13 +92,36 @@ for ref_region in ref_regions:
                 df = pd.read_csv(csvfile_in) #, usecols=region_names)[region_names]
                 # get relevent columns
                 df_cols_z = [s for s in list(df) if "_z" in s]
-                region_names = list(set(region_names).intersection(df_cols_z))
+                available_region_names = list(set(all_region_names).intersection(df_cols_z))
+                # removing names not in the orginal list preserves the list order
+                region_names = [i for i in all_region_names if i in available_region_names]
+                #region_names2 = list(set(df_cols_z).intersection(region_names))
                 df = pd.read_csv(csvfile_in, usecols=region_names)[region_names]
                 
                 data = df.to_numpy()
                 #remove nans
                 data = data[~np.isnan(data).any(axis=1)]
-                
+                # delete row certain subjects as they seem to cause issues in fitting
+                if PVC_flag=='pvc-':
+                    if ref_region=='cereb':
+                        if data_merge_opt=='baseline':
+                            data = np.delete(data, 311, 0)
+                        elif data_merge_opt=='baselineplus':
+                            data = np.delete(data, 439, 0)                            
+                        elif data_merge_opt=='followupplus':
+                            data = np.delete(data, 439, 0)
+                        elif data_merge_opt=='all':
+                            data = np.delete(data, 654, 0)                            
+                    if ref_region=='gm-cereb':
+                        if data_merge_opt=='baseline':                        
+                            data = np.delete(data, 18, 0)
+                        elif data_merge_opt=='baselineplus':
+                            data = np.delete(data, 18, 0)                            
+                        elif data_merge_opt=='followupplus':
+                            data = np.delete(data, 18, 0)
+                        elif data_merge_opt=='all':
+                            data = np.delete(data, 18, 0)     
+                            
                 #output naming and folders
                 dataset_name = out_desc
                 output_folder = outpath+'/'+dataset_name
@@ -206,7 +227,7 @@ for ref_region in ref_regions:
                 # plt.savefig(os.path.join(output_folder,'SuStaIn_output'+desc+'.pdf'))
                 
                 # plotting results -----------------------------------------------------------
-                
+                plt.close('all')
                 # go through each subtypes model and plot MCMC samples of the likelihood
                 for s in range(N_S_max):
                     pickle_filename_s           = output_folder + '/pickle_files/' + dataset_name + '_subtype' + str(s) + '.pickle'
@@ -239,9 +260,10 @@ for ref_region in ref_regions:
                     #plotting the positional variance diagram
                     _ = plt.figure(2)
                     pySuStaIn.ZscoreSustain._plot_sustain_model(sustain_input,samples_sequence,samples_f,len(data),biomarker_labels=SuStaInLabels)
-                    #_ = plt.suptitle('SuStaIn output')
+                    _=plt.suptitle('ref: '+ref_region+', PVC: '+PVC_flag+', datamerge: '+data_merge_opt+' biomarkers:'+' '.join(include_biomarkers))
                     plt.savefig(os.path.join(output_folder,'SuStaIn_output_subtype_'+ str(s)+out_desc+'.pdf'))
                     
+                
                 
                 # #plotting the positional variance diagram
                 # _ = plt.figure(3)
