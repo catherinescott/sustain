@@ -28,7 +28,6 @@ include_biomarker_list = [['amyloid','flow'],['amyloid'],['flow']]#[['flow'],['a
 #include_biomarkers = ['flow'] #['flow', 'amyloid']
 
 
-#FOR SOME REASON AMYLOID DOESNT CURRENTLY WORK
 for ref_region in ref_regions:
     for PVC_flag in PVC_flags:
         for data_merge_opt in data_merge_opts:
