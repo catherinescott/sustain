@@ -31,9 +31,9 @@ region_names =['composite','frontal','parietal','precuneus','occipital','tempora
 plot_centile = 97.5
 cutoff_centile = 97.5
 
-ref_regions = ['cereb', 'gm-cereb']
+ref_regions = ['cereb','gm-cereb']#['cereb', 'gm-cereb']
 PVC_flags = ['pvc-' ,'']
-data_merge_opts = ['followupplus', 'baseline', 'baselineplus', 'all'] 
+data_merge_opts = ['baseline']#['followupplus', 'baseline', 'baselineplus', 'all'] 
 
 # step 1) read in relevent csv's----------------------------------------------------------------
 
@@ -55,7 +55,7 @@ for ref_region in ref_regions:
             #define paths
             out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
             datapath = out_folder+'/SUVR_data_merge_out/'+PVC_flag+ref_region
-            outpath = out_folder+'/genZscoremodsel_out/'+PVC_flag+ref_region
+            outpath = out_folder+'/genZscoremodsel_out_2sd/'+PVC_flag+ref_region
             if not os.path.exists(outpath):
                 os.makedirs(outpath)
                 
@@ -207,15 +207,27 @@ for ref_region in ref_regions:
             
             # step 4) determine the number of z-score levels based on the number of subjects at each level
                         # use 3 standard deviations provded that you have at least 10 subjects in the highest score
-                        if len(X_z[X_z>3])>20:
-                            R1_max = 5
-                            R1_z = [1,2,3]
-                        elif len(X_z[X_z>2])>20:
+                        print('len(X_z[X_z>3]):'+str(len(X_z[X_z>3])))
+                        print('len(X_z[X_z>2]):'+str(len(X_z[X_z>2])))
+                        print('len(X_z[X_z>1]):'+str(len(X_z[X_z>1]))) 
+                        n_subjects_per_z = 20
+                        
+                        # if len(X_z[X_z>3])>n_subjects_per_z:
+                        #     R1_max = 5
+                        #     R1_z = [1,2,3]
+                        # elif len(X_z[X_z>2])>n_subjects_per_z:
+                        #     R1_max = 3
+                        #     R1_z = [1,2]
+                        # else:
+                        #     R1_max = 2
+                        #     R1_z= [1]      
+
+                        if len(X_z[X_z>2])>n_subjects_per_z:
                             R1_max = 3
                             R1_z = [1,2]
                         else:
                             R1_max = 2
-                            R1_z= [1]            
+                            R1_z= [1]    
             
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z_max']=R1_max
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z']=R1_z   
