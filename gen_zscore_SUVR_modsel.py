@@ -13,7 +13,8 @@ Created on Wed Jun 19 13:57:13 2024
 # step 2) loop over regions and fit GMM with 1 or 2 components. Use the BIC to determine the better model
 # step 3) if the region has 2 components the calculate the z-score for all of the subjects
 # step 4) determine the number of z-score levels based on the number of subjects at each level
-# step 5) save the resulting csv files
+# step 5) determine patient status
+# step 6) save the resulting csv files
 
 
 import os
@@ -24,6 +25,7 @@ from sklearn.mixture import GaussianMixture as GMM
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from get_subj_status_SUVR import get_subj_status_SUVR
 
 # parameters to set/test:
 region_names =['composite','frontal','parietal','precuneus','occipital','temporal','insula']
@@ -55,7 +57,8 @@ for ref_region in ref_regions:
             #define paths
             out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
             datapath = out_folder+'/SUVR_data_merge_out/'+PVC_flag+ref_region
-            outpath = out_folder+'/genZscoremodsel_out_2sd/'+PVC_flag+ref_region
+            outpath = out_folder+'/genZscoremodsel_out/'+PVC_flag+ref_region
+            WMH_path = '/Users/catherinescott/Documents/python_IO_files/input_csv_files/WMH'
             if not os.path.exists(outpath):
                 os.makedirs(outpath)
                 
@@ -69,6 +72,7 @@ for ref_region in ref_regions:
             centile_LUT = np.array([[75,0.675],[90,1.282],[95,1.645],[97.5,1.960],[99,2.326]])
             plot_factor = centile_LUT[np.where(centile_LUT[:,0]==plot_centile),1].item()
             cutoff_factor = centile_LUT[np.where(centile_LUT[:,0]==cutoff_centile),1].item()
+            CTL_cutoff = 2
             
             
             
@@ -190,6 +194,10 @@ for ref_region in ref_regions:
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z']='NaN'
                     else: # two component model has lower BIC
                         print(region+' '+param+' INCLUDED as 2 gaussian has lower BIC')
+                        
+                        
+
+                            
             # step 3) if the region has 2 components the calculate the z-score for all of the subjects
             
                         # calculate z-scores based on GMM group 0 mu and sigma (recalc X as previously I removed the NaNs)
@@ -204,6 +212,8 @@ for ref_region in ref_regions:
                             X_z = 1*(X-mu[0])/sigma[0]
                         df_out[region+'_'+param+'_z']= X_z #(X-mu[0])/sigma[0]
                         
+
+                        
             
             # step 4) determine the number of z-score levels based on the number of subjects at each level
                         # use 3 standard deviations provded that you have at least 10 subjects in the highest score
@@ -212,29 +222,73 @@ for ref_region in ref_regions:
                         print('len(X_z[X_z>1]):'+str(len(X_z[X_z>1]))) 
                         n_subjects_per_z = 20
                         
-                        # if len(X_z[X_z>3])>n_subjects_per_z:
-                        #     R1_max = 5
-                        #     R1_z = [1,2,3]
-                        # elif len(X_z[X_z>2])>n_subjects_per_z:
-                        #     R1_max = 3
-                        #     R1_z = [1,2]
-                        # else:
-                        #     R1_max = 2
-                        #     R1_z= [1]      
-
-                        if len(X_z[X_z>2])>n_subjects_per_z:
+                        if len(X_z[X_z>3])>n_subjects_per_z:
+                            R1_max = 5
+                            R1_z = [1,2,3]
+                        elif len(X_z[X_z>2])>n_subjects_per_z:
                             R1_max = 3
                             R1_z = [1,2]
                         else:
                             R1_max = 2
-                            R1_z= [1]    
+                            R1_z= [1]      
+
+                        # if len(X_z[X_z>2])>n_subjects_per_z:
+                        #     R1_max = 3
+                        #     R1_z = [1,2]
+                        # else:
+                        #     R1_max = 2
+                        #     R1_z= [1]    
             
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z_max']=R1_max
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z']=R1_z   
             
+            # step 5) SUBJECT STATUS ---------------------------------------------------------
+
+            #determine whether subjects are controls or not (data is sorted so that group 0 is minimum)
+            #use composite regions and param to determine status
+            
+            #for param in params:
+               #find all relevent z score columns for the parameter in question
+            check_cols = [x for x in df_out.columns if '_z' in x]
+            #determine whether any of the z-scores are >2, will put TRUE if so
+            df_out["PET_PT_status"] = (df_out[check_cols]>=CTL_cutoff).any(axis="columns")
+                
+            
+            #load in WMH data
+            df_WMH = pd.read_csv(os.path.join(WMH_path, 'Longitudinal_P1-P2_WMHV_dataset.csv'),
+                                 usecols=['subject','p1_bamos_wmhv_long','p2_bamos_wmhv_long'])
+            
+            check_cols = [x for x in df_WMH.columns if 'bamos_wmhv_long' in x]
+            WMH_cutoff = 5
+            df_WMH["WMH_PT_status"] = (df_WMH[check_cols]>=WMH_cutoff).any(axis="columns")
+            df_WMH.drop(check_cols,axis=1,inplace=True)
+            df_WMH.rename(columns={"subject": "Subject"}, inplace=True)
+            
+            df_WMH['Subject']=df_WMH['Subject'].astype(str)
+            df_out['Subject']=df_out['Subject'].astype(str)
+            
+            
+            df_out = pd.merge(df_out, df_WMH, how="left",on=["Subject"])
+            check_cols = [x for x in df_out.columns if 'status' in x]
+            
+            df_out['status']=(df_out[check_cols]==False).all(axis="columns")
+            df_out['status'] = df_out['status'].replace([True],'CTL')
+            df_out['status'] = df_out['status'].replace([False],'PT')
+            # upper_cent = mu[0]+(CTL_cutoff *sigma[0])#99th percentile 2.33, 97.5th percentile 1.960
+            # print('BPnd cut-off used for '+region+' = '+str(upper_cent))       
+            # #region_df = get_subj_status_SUVR(df, cutoff=upper_cent, region=region, param='amyloid')
+            
+            # if region == 'composite':
+            #     df_out['Status'+'_'+param] = np.where(df_out[region+'_'+param+'_z']<=CTL_cutoff,'CTL','PT')
+
+                #region_df = get_subj_status_SUVR(df, cutoff=upper_cent, region=region, param='amyloid')
+                # if it is the composite region then add the subject status to the output dataframe
+                #df_out['Status'] = region_df.loc[:,'Status']
+                        
+                    
                     
             
-            # step 5) save the resulting csv files
+            # step 6) save the resulting csv files
             
             #write out the complete dataframe with all params    
             df_out.to_csv(os.path.join(outpath, 'zscore_allregions_'+desc+'.csv'))
