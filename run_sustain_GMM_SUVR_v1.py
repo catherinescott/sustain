@@ -14,6 +14,8 @@ import pySuStaIn
 import matplotlib.pyplot as plt
 import pickle
 from pathlib import Path
+import seaborn as sns
+import sklearn.model_selection
 
 
 #determining regions and biomarkers to include in modelling (will only be included if there is also sufficient data i.e 2 component GMM)
@@ -21,12 +23,15 @@ include_regions = ['frontal','parietal','precuneus','occipital','temporal','insu
 #include_regions = ['frontal', 'parietal','occipital', 'temporal','insula', 'precuneus']
 
 
-ref_regions = ['gm-cereb','cereb'] #['cereb']#
-PVC_flags = ['pvc-', '']#['pvc-' ,'']
-data_merge_opts = ['followupplus'] #['followupplus', 'baseline', 'baselineplus', 'all'] 
-include_biomarker_list = [['amyloid','flow'],['amyloid'],['flow']]#[['flow'],['amyloid'],['flow','amyloid']]
-#include_biomarkers = ['flow'] #['flow', 'amyloid']
+# ref_regions = ['gm-cereb','cereb'] #['cereb']#
+# PVC_flags = ['pvc-', '']#['pvc-' ,'']
+# data_merge_opts = ['baseline', 'baselineplus'] #['followupplus', 'baseline', 'baselineplus', 'all'] 
+# include_biomarker_list = [['amyloid','flow'],['amyloid'],['flow']]#[['flow'],['amyloid'],['flow','amyloid']]
 
+ref_regions = ['gm-cereb','cereb'] #['cereb']#
+PVC_flags = ['']#['pvc-' ,'']
+data_merge_opts = ['baseline'] #['followupplus', 'baseline', 'baselineplus', 'all'] 
+include_biomarker_list = [['amyloid','flow'],['flow'],['amyloid']]#[['flow'],['amyloid'],['flow','amyloid']]
 
 for ref_region in ref_regions:
     for PVC_flag in PVC_flags:
@@ -96,30 +101,67 @@ for ref_region in ref_regions:
                 region_names = [i for i in all_region_names if i in available_region_names]
                 #region_names2 = list(set(df_cols_z).intersection(region_names))
                 df = pd.read_csv(csvfile_in, usecols=region_names)[region_names]
+                subjs= pd.read_csv(csvfile_in, usecols=['Subject'])
+                status= pd.read_csv(csvfile_in, usecols=['status'])
                 
                 data = df.to_numpy()
                 #remove nans
-                data = data[~np.isnan(data).any(axis=1)]
-                # delete row certain subjects as they seem to cause issues in fitting
+                #data = data[~np.isnan(data).any(axis=1)]
+                nonNaN_subjects = ~np.isnan(data).any(axis=1)
+                data = data[nonNaN_subjects]
+                subjs = subjs[nonNaN_subjects].reset_index(drop=True)
+                status = status[nonNaN_subjects].reset_index(drop=True)     
+                
+                # delete row for 01-034 as they seem to cause issues in fitting based on amyloid
                 if PVC_flag=='pvc-':
                     if ref_region=='cereb':
                         if data_merge_opt=='baseline':
                             data = np.delete(data, 311, 0)
+                            subjs.drop([311],inplace=True)
+                            status.drop([311],inplace=True) 
+
                         elif data_merge_opt=='baselineplus':
-                            data = np.delete(data, 439, 0)                            
+                            data = np.delete(data, 439, 0)    
+                            subjs.drop([439],inplace=True)
+                            status.drop([439],inplace=True)
+                            
                         elif data_merge_opt=='followupplus':
                             data = np.delete(data, 439, 0)
+                            subjs.drop([439],inplace=True)
+                            status.drop([439],inplace=True)
                         elif data_merge_opt=='all':
-                            data = np.delete(data, 654, 0)                            
+                            data = np.delete(data, 654, 0)      
+                            subjs.drop([654],inplace=True)
+                            status.drop([654],inplace=True)
                     if ref_region=='gm-cereb':
                         if data_merge_opt=='baseline':                        
                             data = np.delete(data, 18, 0)
+                            subjs.drop([18],inplace=True)
+                            status.drop([18],inplace=True)
+
                         elif data_merge_opt=='baselineplus':
-                            data = np.delete(data, 18, 0)                            
+                            data = np.delete(data, 18, 0)    
+                            subjs.drop([18],inplace=True)
+                            status.drop([18],inplace=True)
                         elif data_merge_opt=='followupplus':
                             data = np.delete(data, 18, 0)
+                            subjs.drop([18],inplace=True)
+                            status.drop([18],inplace=True)
                         elif data_merge_opt=='all':
-                            data = np.delete(data, 18, 0)     
+                            data = np.delete(data, 18, 0) 
+                            subjs.drop([18],inplace=True)
+                            status.drop([18],inplace=True)
+                
+                subjs.reset_index(inplace=True)
+                status.reset_index(inplace=True)
+                zdata = pd.DataFrame(data,columns= list(df.columns))
+                #subj_IDs = df.loc[:,]
+                zdata['Subject'] = subjs['Subject']
+                zdata['Status'] = status['status']
+                
+                #replace status ctl vs label as 0 and 1
+                zdata.replace('CTL',0,inplace=True)
+                zdata.replace('PT',1,inplace=True)  
                             
                 #output naming and folders
                 dataset_name = out_desc
@@ -263,27 +305,134 @@ for ref_region in ref_regions:
                     plt.savefig(os.path.join(output_folder,'SuStaIn_output_subtype_'+ str(s)+out_desc+'.pdf'))
                     
                 
+                    #analysis of results
+                    #pickle_filename_s = pickle_path + '/pickle_files/' + dataset_name + '_subtype' + str(s) + '.pickle'
+                    pk = pd.read_pickle(pickle_filename_s)
+                    
+                    # let's take a look at all of the things that exist in SuStaIn's output (pickle) file
+                    pk.keys()
+                    
+                    for variable in ['ml_subtype', # the assigned subtype
+                                     'prob_ml_subtype', # the probability of the assigned subtype
+                                     'ml_stage', # the assigned stage 
+                                     'prob_ml_stage',]: # the probability of the assigned stage
+                        
+                        # add SuStaIn output to dataframe
+                        zdata.loc[:,variable] = pk[variable] 
+                    
+                    # let's also add the probability for each subject of being each subtype
+                    for i in range(s):
+                        zdata.loc[:,'prob_S%s'%i] = pk['prob_subtype'][:,i]
+                    zdata.head()
+    
+                    # IMPORTANT!!! The last thing we need to do is to set all "Stage 0" subtypes to their own subtype
+                    # We'll set current subtype (0 and 1) to 1 and 0, and we'll call "Stage 0" individuals subtype 0.
+                    
+                    # make current subtypes (0 and 1) 1 and 2 instead
+                    zdata.loc[:,'ml_subtype'] = zdata.ml_subtype.values + 1
+                    
+                    # convert "Stage 0" subjects to subtype 0
+                    zdata.loc[zdata.ml_stage==0,'ml_subtype'] = 0
+                    
+                    #can use this to re-run and exclude
+                    stagezerosubs = zdata.loc[zdata.ml_stage==0,'Subject']
+                    stagezerosubs.to_csv(output_folder+'stagezerosubjs_'+str(s)+'.csv') # need to come back to this to implement in a more general way
+                    
+                    zdata.ml_subtype.value_counts()
+                    
+                    
+                    biomarkerstring = ' '.join(include_biomarkers)
+                    print('Total subjects included in '+biomarkerstring+': '+str(len(zdata)))
+                    
+                    for subtype in range(0,s+2):
+                    
+                        print('for '+biomarkerstring+ ' subtype '+str(subtype)+' n subjects ='+str(len(zdata.loc[zdata['ml_subtype']==subtype,'ml_stage'])))
+                    
+                    #As a sanity check, let's make sure all the "controls" were given assigned to low stages by SuStaIn
+                    
+                    plt.figure()
+                    sns.displot(x='ml_stage',hue='Status',data=zdata,col='ml_subtype')
+                    plt.savefig(os.path.join(output_folder,'stagebysubtype_'+out_desc+'_'+str(s)+'.pdf'))
+                    
+                    
+                    #And now, let's plot the subtype probabilities over SuStaIn stages to make sure we don't have any crossover events
+                    plt.figure()
+                    sns.pointplot(x='ml_stage',y='prob_ml_subtype', # input variables
+                                  hue='ml_subtype',                 # "grouping" variable
+                                data=zdata[zdata.ml_subtype>0]) # only plot for Subtypes 1 and 2 (not 0)
+                    plt.ylim(0,1) 
+                    plt.axhline(1/(s+1),ls='--',color='k') # plot a line representing change (0.5 in the case of 2 subtypes)
+                    plt.savefig(os.path.join(output_folder,'subtypeprob_'+out_desc+'_'+str(s)+'.pdf'))
+                    
+                #cross validation
                 
-                # #plotting the positional variance diagram
-                # _ = plt.figure(3)
+                # choose the number of folds - here i've used three for speed but i recommend 10 typically
+                N_folds = 5
                 
-                # something = get_biomarker_order(samples_sequence,samples_f,len(data),Z_vals,biomarker_labels=SuStaInLabels)
-                # _ = plt.suptitle('SuStaIn output')
-                # plt.savefig(os.path.join(output_folder,'SuStaIn_output'+desc+'.pdf'))
+                # generate stratified cross-validation training and test set splits
+                labels = zdata.Status.values
+                cv = sklearn.model_selection.StratifiedKFold(n_splits=N_folds, shuffle=True)
+                cv_it = cv.split(zdata, labels)
                 
-                # _ = plt.figure(0)
-                # _ = plt.legend(loc='upper right')
-                # _ = plt.xlabel('MCMC samples')
-                # _ = plt.ylabel('Log likelihood')
-                # _ = plt.title('MCMC trace')
-                # plt.savefig(os.path.join(output_folder,'MCMC_subtype_'+ str(s)+'_lablled.pdf'))
-                   
-                # _ = plt.figure(1)
-                # _ = plt.legend(loc='upper right')
-                # _ = plt.xlabel('Log likelihood')  
-                # _ = plt.ylabel('Number of samples')  
-                # _ = plt.title('Figure 6: Histograms of model likelihood')
-                # plt.savefig(os.path.join(output_folder,'hist_subtype_'+ str(s)+desc+'_labelled.pdf'))
+                # SuStaIn currently accepts ragged arrays, which will raise problems in the future.
+                # We'll have to update this in the future, but this will have to do for now
+                test_idxs = []
+                for train, test in cv_it:
+                    test_idxs.append(test)
+                
+                # uncertain why the data type needs to be different for the 2 cases    
+                if PVC_flag=='pvc-':
+                    test_idxs = np.array(test_idxs,dtype='int') #'object','int')
+                else:
+                    test_idxs = np.array(test_idxs,dtype='object')
+                    
+                # perform cross-validation and output the cross-validation information criterion and
+                # log-likelihood on the test set for each subtypes model and fold combination
+                CVIC, loglike_matrix     = sustain_input.cross_validate_sustain_model(test_idxs)
+                
+                
+                # go through each subtypes model and plot the log-likelihood on the test set and the CVIC
+                print("CVIC for each subtype model: " + str(CVIC))
+                print("Average test set log-likelihood for each subtype model: " + str(np.mean(loglike_matrix, 0)))
+                
+                plt.figure()    
+                plt.plot(np.arange(N_S_max,dtype=int),CVIC)
+                plt.xticks(np.arange(N_S_max,dtype=int))
+                plt.ylabel('CVIC')  
+                plt.xlabel('Subtypes model') 
+                plt.title('CVIC')
+                #print('saving figure as: '+os.path.join(output_folder,'CVIC_'+out_desc+'.pdf'))
+                plt.savefig(os.path.join(output_folder,'CVIC_'+out_desc+'.pdf'))
+                
+                
+                plt.figure()
+                df_loglike = pd.DataFrame(data = loglike_matrix, columns = ["s_" + str(i) for i in range(sustain_input.N_S_max)])
+                df_loglike.boxplot(grid=False)
+                plt.ylabel('Log likelihood')  
+                plt.xlabel('Subtypes model') 
+                plt.title('Test set log-likelihood across folds')
+                plt.savefig(os.path.join(output_folder,'LL_'+out_desc+'.pdf'))
+                
+                #Another useful output of the cross-validation that you can look at are positional variance diagrams averaged across cross-validation folds. These give you an idea of the variability in the progression patterns across different training datasets
+                #this part estimates cross-validated positional variance diagrams
+                for i in range(N_S_max):
+                    sustain_input.combine_cross_validated_sequences(i+1, N_folds)
+                    
+                    N_S_selected = i+1#2
+                    
+                #dont need it to replot the original as I've already saved it
+                #pySuStaIn.ZscoreSustain._plot_sustain_model(sustain_input,samples_sequence,samples_f,M,subtype_order=(0,1))
+                #_ = plt.suptitle('SuStaIn output')
+                    plt.figure(4+i)
+                    sustain_input.combine_cross_validated_sequences(N_S_selected, N_folds)
+                    _ = plt.suptitle('Cross-validated SuStaIn output')
+                    plt.savefig(os.path.join(output_folder,'CV_positionalvariance_s'+str(N_S_selected)+out_desc+'.pdf'))
+                    
+    
+    
+                
+                
+
                 
                 
                     
