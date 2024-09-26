@@ -27,19 +27,46 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from get_subj_status_SUVR import get_subj_status_SUVR
 
+# function to get the interceotion between gaussians
+def solve_gaussians(m1, s1,w1, m2, s2,w2):
+    #coefficients of quadratic equation ax^2 + bx + c = 0
+    # a = (s1**2.0) - (s2**2.0)
+    # b = 2 * (m1 * s2**2.0 - m2 * s1**2.0)
+    # c = m2**2.0 * s1**2.0 - m1**2.0 * s2**2.0 - 2 * s1**2.0 * s2**2.0 * np.log(s1/s2)
+    
+    a = 1/(2*s1**2) - 1/(2*s2**2)
+    b = m2/(s2**2) - m1/(s1**2)
+    #c = m1**2 /(2*s1**2) - m2**2 / (2*s2**2) - np.log(s2/s1)
+    c = m1**2 /(2*s1**2) - m2**2 / (2*s2**2) - np.log((s2*w1)/(s1*w2))
+
+    x1 = (-b + np.sqrt(b**2.0 - 4.0 * a * c)) / (2.0 * a)
+    x2 = (-b - np.sqrt(b**2.0 - 4.0 * a * c)) / (2.0 * a)
+    
+    # x1 = (s1*s2*np.sqrt((-2*np.log(s1/s2)*s2**2)+2*s1**2*np.log(s1/s2)+m2**2-2*m1*m2+m1**2)+m1*s2**2-m2*s1**2)/(s2**2-s1**2)
+    # x2 = -(s1*s2*np.sqrt((-2*np.log(s1/s2)*s2**2)+2*s1**2*np.log(s1/s2)+m2**2-2*m1*m2+m1**2)-m1*s2**2+m2*s1**2)/(s2**2-s1**2)
+    return x1, x2
+
 # parameters to set/test:
 region_names =['composite','frontal','parietal','precuneus','occipital','temporal','insula']
 #components_to_fit = 2
 plot_centile = 97.5
 cutoff_centile = 97.5
 
-ref_regions = ['cereb','gm-cereb']#['cereb', 'gm-cereb']
-PVC_flags = ['pvc-' ,'']
-data_merge_opts = ['baseline']#['followupplus', 'baseline', 'baselineplus', 'all'] 
+# ref_regions = ['cereb']#['cereb', 'gm-cereb']
+# PVC_flags = ['pvc-' ,'']
+# data_merge_opts = ['baseline']#['followupplus', 'baseline', 'baselineplus', 'all'] 
+
+ref_regions = ['gm-cereb','cereb'] #['cereb']#
+PVC_flags = ['pvc-' ,'']#['pvc-' ,'']
+data_merge_opts = ['baseline', 'baselineplus', 'followupplus', 'all']  #['followupplus', 'baseline', 'baselineplus', 'all'] 
+#include_biomarker_list = [['amyloid','flow'],['flow'],['amyloid']]#[['flow'],['amyloid'],['flow','amyloid']]
+params = ['amyloid','flow']
+
 
 # step 1) read in relevent csv's----------------------------------------------------------------
 
 image_counter = 0
+path_cmmt = 'single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
 
 for ref_region in ref_regions:
     for PVC_flag in PVC_flags:
@@ -57,7 +84,7 @@ for ref_region in ref_regions:
             #define paths
             out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
             datapath = out_folder+'/SUVR_data_merge_out/'+PVC_flag+ref_region
-            outpath = out_folder+'/genZscoremodsel_out/'+PVC_flag+ref_region
+            outpath = out_folder+'/genZscoremodsel_out'+path_cmmt+'/'+PVC_flag+ref_region
             WMH_path = '/Users/catherinescott/Documents/python_IO_files/input_csv_files/WMH'
             if not os.path.exists(outpath):
                 os.makedirs(outpath)
@@ -92,7 +119,7 @@ for ref_region in ref_regions:
             
                 print('Processing '+ region+'************************************')    
             
-                params = ['amyloid','flow']
+                
                 
                 for param in params:
                     
@@ -150,7 +177,18 @@ for ref_region in ref_regions:
                             arr1inds = mu_flip.argsort()
                             mu = mu[arr1inds[:]]
                             sigma = sigma[arr1inds[:]]
-                            pi = pi[arr1inds[:]]                
+                            pi = pi[arr1inds[:]]     
+                        
+                        # find the intersection of the gaussians
+                        if components==2:
+                            x1,x2 = solve_gaussians(mu[0], sigma[0], pi[0],mu[1],sigma[1],pi[1])
+                            #find the correct intersection
+                            if x1>mu[0] and x1<mu[1]:
+                                x_intersect = x1
+                            else:
+                                x_intersect = x2
+                            y_intersect =single_pdf(x_intersect, mu, sigma, pi, 0)# 1.0/np.sqrt(2*np.pi*sigma[0]**2) * np.exp(-((x_intersect-mu[0])**2)/(2*sigma[0]**2))
+#mlab.normpdf(x_intersect,mu[0],sigma[0])
                         
                         # MAKING PLOTS -----------------------------------------------------------
                         #i = components-1
@@ -173,12 +211,16 @@ for ref_region in ref_regions:
                             _ = plt.plot([upper_cent,upper_cent],[0,7],':',c = cmap(i+1),alpha=0.3)
                             
                         #plt.scatter(X, [0.01]*X.shape[0], c=labels, cmap='viridis')
-                        
+                        #add intersection
+                        if components==2:
+                            _=plt.plot(x_intersect,y_intersect,'ko',mfc='none')
+                            _=plt.plot(mu[0],single_pdf(mu[0], mu, sigma, pi, 0),'x',c = cmap(1),mfc='none')
+                            _=plt.plot(mu[1],single_pdf(mu[1], mu, sigma, pi, 1),'x',c = cmap(2),mfc='none')                            
                         _ = plt.legend(loc='upper right')
                         _ = plt.xlabel(region+' '+param)  
                         _ = plt.ylabel('Probability density')  
-                        _ = plt.title('Gaussian mixture model with '+str(components)+
-                                          ' components (BIC='+str(round(gmm.bic(X),1))+', AIC='+str(round(gmm.aic(X),1))+')')
+                        _ = plt.title('GMM '+str(components)+
+                                          ' comp '+PVC_flag+ref_region+'_'+ data_merge_opt+'(BIC='+str(round(gmm.bic(X),1))+', AIC='+str(round(gmm.aic(X),1))+')')
                         plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'.pdf'))
                         image_counter = image_counter+1
                         
@@ -192,6 +234,8 @@ for ref_region in ref_regions:
                         print(region+' '+param+' EXCLUDED as 1 gaussian has lower BIC')
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z_max']='NaN'
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z']='NaN'
+                        _ = plt.xlabel('EXCLUDED '+region+' '+param) 
+                        plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'.pdf'))
                     else: # two component model has lower BIC
                         print(region+' '+param+' INCLUDED as 2 gaussian has lower BIC')
                         
@@ -222,23 +266,30 @@ for ref_region in ref_regions:
                         print('len(X_z[X_z>1]):'+str(len(X_z[X_z>1]))) 
                         n_subjects_per_z = 20
                         
-                        if len(X_z[X_z>3])>n_subjects_per_z:
-                            R1_max = 5
-                            R1_z = [1,2,3]
-                        elif len(X_z[X_z>2])>n_subjects_per_z:
-                            R1_max = 3
-                            R1_z = [1,2]
-                        else:
-                            R1_max = 2
-                            R1_z= [1]      
-
-                        # if len(X_z[X_z>2])>n_subjects_per_z:
+                        # for regular use
+                        # if len(X_z[X_z>3])>n_subjects_per_z:
+                        #     R1_max = 5
+                        #     R1_z = [1,2,3]
+                        # elif len(X_z[X_z>2])>n_subjects_per_z:
                         #     R1_max = 3
                         #     R1_z = [1,2]
                         # else:
                         #     R1_max = 2
-                        #     R1_z= [1]    
-            
+                        #     R1_z= [1]      
+                        
+                        #when path_cmmt = 'single'
+                        # set cutoffs at intersection and max at mean of second gaussian
+                        #calculate zscore for this
+                        if param == 'flow':
+                            R1_z = -1*(x_intersect-mu[0])/sigma[0]
+                            R1_max = -1*(mu[1]-mu[0])/sigma[0]
+                            
+                        else:
+                            R1_z = 1*(x_intersect-mu[0])/sigma[0]
+                            R1_max = 1*(mu[1]-mu[0])/sigma[0]
+                        print('mu[0]: '+str(mu[0])+', sigma[0]: '+str(sigma[0])+', x_intersect: '+str(x_intersect))
+                        print('mu[1]: '+str(mu[1])+', sigma[1]: '+str(sigma[1])+', x_intersect: '+str(x_intersect))                        
+                        
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z_max']=R1_max
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z']=R1_z   
             
