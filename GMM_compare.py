@@ -23,7 +23,7 @@ include_biomarker_list = [['flow'],['amyloid']]#[['flow'],['amyloid'],['flow','a
 region_names =['composite','frontal','parietal','precuneus','occipital','temporal','insula']
 
 remove_zero_subs='no'
-path_cmmt = 'single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
+path_cmmt = '' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
 
 
 im_width=1280
@@ -31,7 +31,7 @@ im_height=960
 col_width = im_width*len(PVC_flags)
 col_height = im_height*len(region_names)
 
-collage = Image.new("RGBA", ((col_width),(col_height)))
+#collage = Image.new("RGBA", ((col_width),(col_height)))
 fontsize = 30
 font = ImageFont.truetype("/System/Library/Fonts/Supplemental/arial.ttf", fontsize)
 
@@ -41,7 +41,7 @@ for ref_region in ref_regions:
         for data_merge_opt in data_merge_opts:
         
             region_name_idx = 0
-             
+            collage = Image.new("RGBA", ((col_width),(col_height))) 
             for i in range(0,col_height,im_height):
                 
                 PVC_idx = 0
