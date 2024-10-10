@@ -29,8 +29,8 @@ include_regions = ['frontal','parietal','precuneus','occipital','temporal','insu
 # include_biomarker_list = [['amyloid','flow'],['amyloid'],['flow']]#[['flow'],['amyloid'],['flow','amyloid']]
 
 ref_regions = ['gm-cereb','cereb'] #['cereb']#
-PVC_flags = ['']#['pvc-' ,'']
-data_merge_opts = ['baseline'] #['followupplus', 'baseline', 'baselineplus', 'all'] 
+PVC_flags = ['pvc-' ,'']#['pvc-' ,'']
+data_merge_opts = ['baseline', 'baselineplus', 'followupplus', 'all']  #['followupplus', 'baseline', 'baselineplus', 'all'] 
 include_biomarker_list = [['amyloid','flow'],['flow'],['amyloid']]#[['flow'],['amyloid'],['flow','amyloid']]
 
 for ref_region in ref_regions:
@@ -382,7 +382,7 @@ for ref_region in ref_regions:
                 
                 # uncertain why the data type needs to be different for the 2 cases    
                 if PVC_flag=='pvc-':
-                    test_idxs = np.array(test_idxs,dtype='int') #'object','int')
+                    test_idxs = np.array(test_idxs,dtype='object') #'object','int')
                 else:
                     test_idxs = np.array(test_idxs,dtype='object')
                     
