@@ -28,7 +28,7 @@ im_height=960
 col_width = im_width*len(PVC_flags)
 col_height = im_height*len(data_merge_opts)
 
-collage = Image.new("RGBA", ((col_width),(col_height)))
+#collage = Image.new("RGBA", ((col_width),(col_height)))
 fontsize = 30
 font = ImageFont.truetype("/System/Library/Fonts/Supplemental/arial.ttf", fontsize)
 
@@ -36,7 +36,7 @@ for ref_region in ref_regions:
     for include_biomarkers in include_biomarker_list:
         
         data_merge_idx = 0
-         
+        collage = Image.new("RGBA", ((col_width),(col_height))) 
         for i in range(0,col_height,im_height):
             
             PVC_idx = 0
