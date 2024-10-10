@@ -62,11 +62,14 @@ data_merge_opts = ['baseline', 'baselineplus', 'followupplus', 'all']  #['follow
 #include_biomarker_list = [['amyloid','flow'],['flow'],['amyloid']]#[['flow'],['amyloid'],['flow','amyloid']]
 params = ['amyloid','flow']
 
+#this array holds the mean and standard deviation of the fits for group1 and 2
+mean_array = np.zeros(shape=(len(region_names), 4,len(PVC_flags),len(ref_regions),len(params), len(data_merge_opts)))
+mean_array[:] = np.nan
 
 # step 1) read in relevent csv's----------------------------------------------------------------
 
 image_counter = 0
-path_cmmt = 'single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
+path_cmmt = '' #'single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
 
 for ref_region in ref_regions:
     for PVC_flag in PVC_flags:
@@ -229,16 +232,18 @@ for ref_region in ref_regions:
                         print(str(components)+' comp: BIC='+str(round(gmm.bic(X),1))+', AIC='+str(round(gmm.aic(X),1))+')')
                         
                     # see whether we will use this region or not
-                    if BIC[0]<=BIC[1]:
+                    if BIC[0]<=BIC[1] or abs(BIC[1]-BIC[0])<10:
                         # one component model has lower BIC, dont include this region
                         print(region+' '+param+' EXCLUDED as 1 gaussian has lower BIC')
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z_max']='NaN'
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z']='NaN'
-                        _ = plt.xlabel('EXCLUDED '+region+' '+param) 
+                        _ = plt.xlabel('EXCLUDED '+region+' '+param+' (BIC diff= '+str(round(abs(BIC[1]-BIC[0]),1))+')') 
                         plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'.pdf'))
                     else: # two component model has lower BIC
                         print(region+' '+param+' INCLUDED as 2 gaussian has lower BIC')
-                        
+                        mean_array[region_names.index(region),:,PVC_flags.index(PVC_flag),ref_regions.index(ref_region), params.index(param),data_merge_opts.index(data_merge_opt)] = [mu[0],mu[1],sigma[0],sigma[1]]
+                        _ = plt.xlabel(region+' '+param+' (BIC diff= '+str(round(abs(BIC[1]-BIC[0]),1))+')') 
+                        plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'.pdf'))                        
                         
 
                             
@@ -266,27 +271,33 @@ for ref_region in ref_regions:
                         print('len(X_z[X_z>1]):'+str(len(X_z[X_z>1]))) 
                         n_subjects_per_z = 20
                         
-                        # for regular use
-                        # if len(X_z[X_z>3])>n_subjects_per_z:
-                        #     R1_max = 5
-                        #     R1_z = [1,2,3]
-                        # elif len(X_z[X_z>2])>n_subjects_per_z:
-                        #     R1_max = 3
-                        #     R1_z = [1,2]
-                        # else:
-                        #     R1_max = 2
-                        #     R1_z= [1]      
-                        
-                        #when path_cmmt = 'single'
-                        # set cutoffs at intersection and max at mean of second gaussian
-                        #calculate zscore for this
-                        if param == 'flow':
-                            R1_z = -1*(x_intersect-mu[0])/sigma[0]
-                            R1_max = -1*(mu[1]-mu[0])/sigma[0]
-                            
+                        if path_cmmt == 'single':
+                            print('using single cut off of intersection')
+                            #when path_cmmt = 'single'
+                            # set cutoffs at intersection and max at mean of second gaussian
+                            #calculate zscore for this
+                            if param == 'flow':
+                                R1_z = -1*(x_intersect-mu[0])/sigma[0]
+                                R1_max = -1*(mu[1]-mu[0])/sigma[0]
+                                
+                            else:
+                                R1_z = 1*(x_intersect-mu[0])/sigma[0]
+                                R1_max = 1*(mu[1]-mu[0])/sigma[0]
                         else:
-                            R1_z = 1*(x_intersect-mu[0])/sigma[0]
-                            R1_max = 1*(mu[1]-mu[0])/sigma[0]
+                            
+                            print('Using cut offs at 1 2 and 3 std dev')
+                        # for regular use
+                            if len(X_z[X_z>3])>n_subjects_per_z:
+                                R1_max = 5
+                                R1_z = [1,2,3]
+                            elif len(X_z[X_z>2])>n_subjects_per_z:
+                                R1_max = 3
+                                R1_z = [1,2]
+                            else:
+                                R1_max = 2
+                                R1_z= [1]      
+                        
+
                         print('mu[0]: '+str(mu[0])+', sigma[0]: '+str(sigma[0])+', x_intersect: '+str(x_intersect))
                         print('mu[1]: '+str(mu[1])+', sigma[1]: '+str(sigma[1])+', x_intersect: '+str(x_intersect))                        
                         
