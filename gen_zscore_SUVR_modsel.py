@@ -89,12 +89,17 @@ for ref_region in ref_regions:
             datapath = out_folder+'/SUVR_data_merge_out/'+PVC_flag+ref_region
             outpath = out_folder+'/genZscoremodsel_out'+path_cmmt+'/'+PVC_flag+ref_region
             WMH_path = '/Users/catherinescott/Documents/python_IO_files/input_csv_files/WMH'
+            supercontrol_path = '/Users/catherinescott/Documents/python_IO_files/input_csv_files/supercontrol'
+            
             if not os.path.exists(outpath):
                 os.makedirs(outpath)
                 
-            
+            #load in all data from csv
             df = pd.read_csv(os.path.join(datapath, desc+'_sustain_raw.csv'))
-            
+            #load in supercontrols from csv
+            df_supercontrol_ID = pd.read_csv(os.path.join(supercontrol_path,'stable.csv')).rename(columns={"subject":"Subject"}).astype(str)
+
+            df_sc = df.merge(df_supercontrol_ID,on='Subject', how='inner')
             
             # step 2) loop over regions and fit GMM with 1 or 2 components. Use the BIC to determine the better model
             
@@ -110,11 +115,16 @@ for ref_region in ref_regions:
             #define output dataframe for z scores by patient
             #df_out = df.loc[['Subject']]
             df_out = df[['Subject']].copy()
+            df_sc_out = df[['Subject']].copy()
             
             
             #define output dataframe for z_max by region
             df_zmax = pd.DataFrame([region_names,np.ones((len(region_names),1)),np.ones((len(region_names),1)),np.ones((len(region_names),1))*1.960,np.ones((len(region_names),1))]).transpose()
             df_zmax.rename(columns={0: 'Region', 1: 'flow z_max' , 2 : 'amyloid z_max', 3:'amyloid z', 4: 'flow z'}, inplace=True)
+            
+            df_sc_zmax = pd.DataFrame([region_names,np.ones((len(region_names),1)),np.ones((len(region_names),1)),np.ones((len(region_names),1))*1.960,np.ones((len(region_names),1))]).transpose()
+            df_sc_zmax.rename(columns={0: 'Region', 1: 'flow z_max' , 2 : 'amyloid z_max', 3:'amyloid z', 4: 'flow z'}, inplace=True)            
+            
             #, columns=['Region','R1 z_max','BP z_max']
             
             for region in region_names:
@@ -128,9 +138,12 @@ for ref_region in ref_regions:
                     
                     print(param+'--------------------------------------------')
                     
+                    #get region data
                     df_region = df[[region+'_'+param]] 
                     X = df_region.to_numpy()
-            
+                    #also for supercontrols
+                    df_region_sc = df_sc[[region+'_'+param]] 
+                    X_sc = df_region_sc.to_numpy()                    
             
                     def mix_pdf(x, loc, scale, weights):
                         d = np.zeros_like(x)
@@ -181,6 +194,13 @@ for ref_region in ref_regions:
                             mu = mu[arr1inds[:]]
                             sigma = sigma[arr1inds[:]]
                             pi = pi[arr1inds[:]]     
+                            
+                        #fit supercontrols (always use 1 component)
+                        gmm_sc = GMM(n_components=1).fit(X_sc)
+                        labels_sc = gmm_sc.predict(X_sc)
+                        pi_sc, mu_sc, sigma_sc = gmm_sc.weights_.flatten(), gmm_sc.means_.flatten(), np.sqrt(gmm_sc.covariances_.flatten())
+                        #calculate the t-test to compare means https://ethanweed.github.io/pythonbook/05.02-ttest.html
+                        #F test to compare vairance
                         
                         # find the intersection of the gaussians
                         if components==2:
@@ -223,8 +243,10 @@ for ref_region in ref_regions:
                         _ = plt.xlabel(region+' '+param)  
                         _ = plt.ylabel('Probability density')  
                         _ = plt.title('GMM '+str(components)+
-                                          ' comp '+PVC_flag+ref_region+'_'+ data_merge_opt+'(BIC='+str(round(gmm.bic(X),1))+', AIC='+str(round(gmm.aic(X),1))+')')
+                                          ' comp '+PVC_flag+ref_region+'_'+ data_merge_opt+'(BIC='+str(round(gmm.bic(X),1))+', AIC='+str(round(gmm.aic(X),1))+')')                        
                         plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'.pdf'))
+                        
+
                         image_counter = image_counter+1
                         
                         BIC.append(gmm.bic(X))
@@ -232,6 +254,8 @@ for ref_region in ref_regions:
                         print(str(components)+' comp: BIC='+str(round(gmm.bic(X),1))+', AIC='+str(round(gmm.aic(X),1))+')')
                         
                     # see whether we will use this region or not
+                                        
+                    # BIC method (using GMM on all data)
                     if BIC[0]<=BIC[1] or abs(BIC[1]-BIC[0])<10:
                         # one component model has lower BIC, dont include this region
                         print(region+' '+param+' EXCLUDED as 1 gaussian has lower BIC')
@@ -239,13 +263,22 @@ for ref_region in ref_regions:
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z']='NaN'
                         _ = plt.xlabel('EXCLUDED '+region+' '+param+' (BIC diff= '+str(round(abs(BIC[1]-BIC[0]),1))+')') 
                         plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'.pdf'))
+                        
+                        # #add what it would look like usng the supercontrol fit
+                        # _ = plt.plot(grid, single_pdf(grid, mu_sc, sigma_sc, pi_sc, 0),'--',c = cmap(i+2), label='group SC')
+                        # _ = plt.legend(loc='upper right')
+                        # plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'_SC.pdf'))
+                        
                     else: # two component model has lower BIC
                         print(region+' '+param+' INCLUDED as 2 gaussian has lower BIC')
                         mean_array[region_names.index(region),:,PVC_flags.index(PVC_flag),ref_regions.index(ref_region), params.index(param),data_merge_opts.index(data_merge_opt)] = [mu[0],mu[1],sigma[0],sigma[1]]
                         _ = plt.xlabel(region+' '+param+' (BIC diff= '+str(round(abs(BIC[1]-BIC[0]),1))+')') 
                         plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'.pdf'))                        
                         
-
+                        # #add what it would look like usng the supercontrol fit
+                        # _ = plt.plot(grid, single_pdf(grid, mu_sc, sigma_sc, pi_sc, 0),'--',c = cmap(i+2), label='group SC')
+                        # _ = plt.legend(loc='upper right')
+                        # plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'_SC.pdf'))
                             
             # step 3) if the region has 2 components the calculate the z-score for all of the subjects
             
@@ -260,9 +293,7 @@ for ref_region in ref_regions:
                         else:
                             X_z = 1*(X-mu[0])/sigma[0]
                         df_out[region+'_'+param+'_z']= X_z #(X-mu[0])/sigma[0]
-                        
-
-                        
+                                              
             
             # step 4) determine the number of z-score levels based on the number of subjects at each level
                         # use 3 standard deviations provded that you have at least 10 subjects in the highest score
@@ -274,15 +305,15 @@ for ref_region in ref_regions:
                         if path_cmmt == 'single':
                             print('using single cut off of intersection')
                             #when path_cmmt = 'single'
-                            # set cutoffs at intersection and max at mean of second gaussian
+                            # set cutoffs at intersection and max at 3
                             #calculate zscore for this
                             if param == 'flow':
                                 R1_z = -1*(x_intersect-mu[0])/sigma[0]
-                                R1_max = -1*(mu[1]-mu[0])/sigma[0]
+                                R1_max = 3 #-1*(mu[1]-mu[0])/sigma[0]
                                 
                             else:
                                 R1_z = 1*(x_intersect-mu[0])/sigma[0]
-                                R1_max = 1*(mu[1]-mu[0])/sigma[0]
+                                R1_max = 3 #1*(mu[1]-mu[0])/sigma[0]
                         else:
                             
                             print('Using cut offs at 1 2 and 3 std dev')
@@ -298,16 +329,102 @@ for ref_region in ref_regions:
                                 R1_z= [1]      
                         
 
-                        print('mu[0]: '+str(mu[0])+', sigma[0]: '+str(sigma[0])+', x_intersect: '+str(x_intersect))
+                        print('mu SC: '+str(mu_sc)+', sigma SC: '+str(sigma_sc))
+                        print('mu[0]: '+str(mu[0])+', sigma[0]: '+str(sigma[0])+', x_intersect: '+str(x_intersect))                        
                         print('mu[1]: '+str(mu[1])+', sigma[1]: '+str(sigma[1])+', x_intersect: '+str(x_intersect))                        
                         
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z_max']=R1_max
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z']=R1_z   
+                        
+                    # z-score method (using super control z-scores)
+                    # use 2 stadard deviations (95%), see if we have > the number outside of this than we would have given chance
+                    
+                    if param == 'flow':
+                        z_cutoff = mu_sc-(2*sigma_sc)
+                        n_subjects_above_thresh = len(X[X<z_cutoff])
+                        
+                    else:
+                        z_cutoff = mu_sc+(2*sigma_sc)
+                        n_subjects_above_thresh = len(X[X>z_cutoff])
+                    percent_above_thresh = 100*(n_subjects_above_thresh/len(X))
+                    
+                    if percent_above_thresh<2.5:
+                        # don't have nore subjects outside 2 SD than you would expect based on chance
+                        print(region+' '+param+' EXCLUDED based on 2 SD')
+
+                        df_sc_zmax.at[df_sc_zmax.loc[df_sc_zmax['Region'] == region].index[0],param+' z_max']='NaN'
+                        df_sc_zmax.at[df_sc_zmax.loc[df_sc_zmax['Region'] == region].index[0],param+' z']='NaN'
+                        
+                        #add what it would look like usng the supercontrol fit
+                        _ = plt.plot(grid, single_pdf(grid, mu_sc, sigma_sc, pi_sc, 0),'--',c = cmap(i+2), label='group SC')
+                        _ = plt.legend(loc='upper right')
+                        _ = plt.xlabel('EXCLUDED '+region+' '+param+' (% above thresh= '+str(round(percent_above_thresh,1))+')') 
+                        plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'_SC.pdf'))
+                    else: # more outside 2 SD than by chnace
+                        print(region+' '+param+' INCLUDED base on 2 SD')
+                        #mean_array[region_names.index(region),:,PVC_flags.index(PVC_flag),ref_regions.index(ref_region), params.index(param),data_merge_opts.index(data_merge_opt)] = [mu[0],mu[1],sigma[0],sigma[1]]
+        
+                        #add what it would look like usng the supercontrol fit
+                        _ = plt.plot(grid, single_pdf(grid, mu_sc, sigma_sc, pi_sc, 0),'--',c = cmap(i+2), label='group SC')
+                        _ = plt.legend(loc='upper right')
+                        _ = plt.xlabel(region+' '+param+' (% above thresh= '+str(round(percent_above_thresh,1))+')') 
+                        plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'_SC.pdf'))
+                        
+            # step 3) if the region is INCLUDED calculate the z-score for all of the subjects
             
+                        # calculate z-scores based on GMM group 0 mu and sigma (recalc X as previously I removed the NaNs)
+                        df_region = df[['Subject',region+'_'+param]]
+                        #df_region = df.loc[(df['Session']=='baseline') & (df['ROI']==region),['Subject',param+'_srtm', 'R1_srtm']]
+                        X = df_region[region+'_'+param].to_numpy()
+                    
+                        df_sc_out[region+'_'+param+'_suvr'] = X
+                        if param == 'flow':
+                            X_sc_z = -1*(X-mu_sc)/sigma_sc
+                        else:
+                            X_sc_z = 1*(X-mu_sc)/sigma_sc
+                        df_sc_out[region+'_'+param+'_z']= X_sc_z #(X-mu[0])/sigma[0]
+                                              
+            
+            # step 4) determine the number of z-score levels based on the number of subjects at each level
+                        # use 3 standard deviations provded that you have at least 10 subjects in the highest score
+                        print('len(X_z[X_z>3]):'+str(len(X_sc_z[X_sc_z>3])))
+                        print('len(X_z[X_z>2]):'+str(len(X_sc_z[X_sc_z>2])))
+                        print('len(X_z[X_z>1]):'+str(len(X_sc_z[X_sc_z>1]))) 
+                        n_subjects_per_z = 20
+                        
+                        if path_cmmt == 'single':
+                            print('using single cut off at 2SD, max 3SD')
+                            #when path_cmmt = 'single'
+                            R1_sc_max = 3
+                            R1_sc_z= [2]    
+                        else:
+                            
+                            print('Using cut offs at 1 2 and 3 std dev')
+                        # for regular use
+                            if len(X_sc_z[X_sc_z>3])>n_subjects_per_z:
+                                R1_sc_max = 5
+                                R1_sc_z = [1,2,3]
+                            elif len(X_sc_z[X_sc_z>2])>n_subjects_per_z:
+                                R1_sc_max = 3
+                                R1_sc_z = [1,2]
+                            else:
+                                R1_sc_max = 2
+                                R1_sc_z= [1]      
+                        
+
+                        print('mu SC: '+str(mu_sc)+', sigma SC: '+str(sigma_sc))
+                        print('mu[0]: '+str(mu[0])+', sigma[0]: '+str(sigma[0])+', x_intersect: '+str(x_intersect))                        
+                        print('mu[1]: '+str(mu[1])+', sigma[1]: '+str(sigma[1])+', x_intersect: '+str(x_intersect))                        
+                        
+                        df_sc_zmax.at[df_sc_zmax.loc[df_sc_zmax['Region'] == region].index[0],param+' z_max']=R1_sc_max
+                        df_sc_zmax.at[df_sc_zmax.loc[df_sc_zmax['Region'] == region].index[0],param+' z']=R1_sc_z   
+
+                     
+        
             # step 5) SUBJECT STATUS ---------------------------------------------------------
 
             #determine whether subjects are controls or not (data is sorted so that group 0 is minimum)
-            #use composite regions and param to determine status
+            #use all regions and WMH to determine status
             
             #for param in params:
                #find all relevent z score columns for the parameter in question
@@ -336,17 +453,20 @@ for ref_region in ref_regions:
             df_out['status']=(df_out[check_cols]==False).all(axis="columns")
             df_out['status'] = df_out['status'].replace([True],'CTL')
             df_out['status'] = df_out['status'].replace([False],'PT')
-            # upper_cent = mu[0]+(CTL_cutoff *sigma[0])#99th percentile 2.33, 97.5th percentile 1.960
-            # print('BPnd cut-off used for '+region+' = '+str(upper_cent))       
-            # #region_df = get_subj_status_SUVR(df, cutoff=upper_cent, region=region, param='amyloid')
-            
-            # if region == 'composite':
-            #     df_out['Status'+'_'+param] = np.where(df_out[region+'_'+param+'_z']<=CTL_cutoff,'CTL','PT')
 
-                #region_df = get_subj_status_SUVR(df, cutoff=upper_cent, region=region, param='amyloid')
-                # if it is the composite region then add the subject status to the output dataframe
-                #df_out['Status'] = region_df.loc[:,'Status']
-                        
+            # repeat for SC method
+            #determine whether any of the z-scores are >2, will put TRUE if so
+            check_cols = [x for x in df_sc_out.columns if '_z' in x]
+            df_sc_out["PET_PT_status"] = (df_sc_out[check_cols]>=CTL_cutoff).any(axis="columns")
+                
+            # use WMH processing from above            
+            
+            df_sc_out = pd.merge(df_sc_out, df_WMH, how="left",on=["Subject"])
+            check_cols = [x for x in df_sc_out.columns if 'status' in x]
+            
+            df_sc_out['status']=(df_sc_out[check_cols]==False).all(axis="columns")
+            df_sc_out['status'] = df_sc_out['status'].replace([True],'CTL')
+            df_sc_out['status'] = df_sc_out['status'].replace([False],'PT')                        
                     
                     
             
@@ -355,10 +475,11 @@ for ref_region in ref_regions:
             #write out the complete dataframe with all params    
             df_out.to_csv(os.path.join(outpath, 'zscore_allregions_'+desc+'.csv'))
             df_zmax.to_csv(os.path.join(outpath, 'zmax_allregions_'+desc+'.csv'))
-             
+            #print(os.path.join(outpath, 'zmax_allregions_'+desc+path_cmmt+'.csv'))
         
-
-
+            df_sc_out.to_csv(os.path.join(outpath, 'zscore_allregions_'+desc+'_SC.csv'))
+            df_sc_zmax.to_csv(os.path.join(outpath, 'zmax_allregions_'+desc+'_SC.csv'))
+            #print(os.path.join(outpath, 'zmax_allregions_'+desc+path_cmmt+'_SC.csv'))
 
 
 
