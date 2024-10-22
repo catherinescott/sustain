@@ -69,7 +69,7 @@ mean_array[:] = np.nan
 # step 1) read in relevent csv's----------------------------------------------------------------
 
 image_counter = 0
-path_cmmt = '' #'single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
+path_cmmt = '_single' #'_single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
 
 for ref_region in ref_regions:
     for PVC_flag in PVC_flags:
@@ -302,7 +302,7 @@ for ref_region in ref_regions:
                         print('len(X_z[X_z>1]):'+str(len(X_z[X_z>1]))) 
                         n_subjects_per_z = 20
                         
-                        if path_cmmt == 'single':
+                        if path_cmmt == '_single':
                             print('using single cut off of intersection')
                             #when path_cmmt = 'single'
                             # set cutoffs at intersection and max at 3
@@ -392,7 +392,7 @@ for ref_region in ref_regions:
                         print('len(X_z[X_z>1]):'+str(len(X_sc_z[X_sc_z>1]))) 
                         n_subjects_per_z = 20
                         
-                        if path_cmmt == 'single':
+                        if path_cmmt == '_single':
                             print('using single cut off at 2SD, max 3SD')
                             #when path_cmmt = 'single'
                             R1_sc_max = 3
