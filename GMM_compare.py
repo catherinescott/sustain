@@ -25,6 +25,7 @@ region_names =['composite','frontal','parietal','precuneus','occipital','tempora
 remove_zero_subs='no'
 path_cmmt = '' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
 
+sc_cmmt='_sc' #either '' or '_sc' if you want to compile the GMM including super control fit
 
 im_width=1280
 im_height=960
@@ -77,7 +78,7 @@ for ref_region in ref_regions:
                     
                     # dataset_name = out_desc
                     # output_folder = outpath+'/'+dataset_name
-                    CVIC_plot_path = os.path.join(outpath,'GMM_'+region_name_opt+'_'+include_biomarkers[0]+'_2component_'+desc+'.pdf')
+                    CVIC_plot_path = os.path.join(outpath,'GMM_'+region_name_opt+'_'+include_biomarkers[0]+'_2component_'+desc+sc_cmmt+'.pdf')
                     #os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'.pdf'))
                     if os.path.isfile(CVIC_plot_path):
                         new_img = convert_from_path(CVIC_plot_path)
@@ -94,5 +95,5 @@ for ref_region in ref_regions:
                 region_name_idx=region_name_idx+1
                     
             collage.show()
-            collage.save(out_folder+'/genZscoremodsel_out'+path_cmmt+'/GMMsummary_'+ref_region+'_'+'_'.join(include_biomarkers)+'_'+ data_merge_opt+'.png')
+            collage.save(out_folder+'/genZscoremodsel_out'+path_cmmt+'/GMMsummary_'+ref_region+'_'+'_'.join(include_biomarkers)+'_'+ data_merge_opt+sc_cmmt+'.png')
             
