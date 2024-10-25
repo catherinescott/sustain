@@ -21,6 +21,8 @@ PVC_flags = ['pvc-','']#['pvc-' ,'']
 data_merge_opts = ['baseline', 'baselineplus','followupplus', 'all'] #['followupplus', 'baseline', 'baselineplus', 'all'] 
 include_biomarker_list = [['amyloid','flow'],['flow'],['amyloid']]#[['flow'],['amyloid'],['flow','amyloid']]
 test_run = 'run'
+z_method = '_SC' # '_SC' or '' for supercontrol derfined z scores or GMM defined respectively
+path_cmmt = '' 
 
 remove_zero_subs='no'
 
@@ -61,17 +63,20 @@ for ref_region in ref_regions:
                 
                 in_desc = '1946AVID2YOADSUVR_v1'#'1946-srtm-cleanandAVID27'
                 if remove_zero_subs=='yes':
-                    out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+'removezero_v1'
+                    out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+z_method+path_cmmt+'removezero_v1'
                 else:
-                    out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+'_v1'
+                    out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+z_method+path_cmmt+'_v1'
                 
                 
-                out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
-                outpath = out_folder+'/run_SuStaIn_GMM/'+PVC_flag+ref_region
+                in_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
+                inpath = in_folder+'/run_SuStaIn_GMM/'+PVC_flag+ref_region+z_method
+                out_folder = os.path.join(in_folder,'run_SuStaIn_GMM','summary_figures', 'CVIC')
+                if not os.path.exists(out_folder):
+                    os.makedirs(out_folder)
                 
                 dataset_name = out_desc
-                output_folder = outpath+'/'+dataset_name
-                CVIC_plot_path = os.path.join(output_folder,'CVIC_'+out_desc+'.pdf')
+                input_folder = inpath+'/'+dataset_name
+                CVIC_plot_path = os.path.join(input_folder,'CVIC_'+out_desc+'.pdf')
                 if os.path.isfile(CVIC_plot_path):
                     new_img = convert_from_path(CVIC_plot_path)
                     new_img = new_img[0]
@@ -87,5 +92,5 @@ for ref_region in ref_regions:
             data_merge_idx=data_merge_idx+1
                 
         collage.show()
-        collage.save(out_folder+'/run_SuStaIn_GMM/'+ref_region+'_'+'_'.join(include_biomarkers)+'.png')
+        collage.save(out_folder+'/'+ref_region+'_'+'_'.join(include_biomarkers)+z_method+'.png')
         
