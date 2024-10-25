@@ -29,16 +29,25 @@ include_regions = ['frontal','parietal','precuneus','occipital','temporal','insu
 # include_biomarker_list = [['amyloid','flow'],['amyloid'],['flow']]#[['flow'],['amyloid'],['flow','amyloid']]
 
 ref_regions = ['gm-cereb','cereb'] #['cereb']#
-PVC_flags = ['pvc-' ,'']#['pvc-' ,'']
+PVC_flags = ['' ,'pvc-']#['pvc-' ,'']
 data_merge_opts = ['baseline', 'baselineplus', 'followupplus', 'all']  #['followupplus', 'baseline', 'baselineplus', 'all'] 
 include_biomarker_list = [['amyloid','flow'],['flow'],['amyloid']]#[['flow'],['amyloid'],['flow','amyloid']]
+z_method = '_SC' # '_SC' or '' for supercontrol derfined z scores or GMM defined respectively
+path_cmmt = '' #'_single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
+
+# ref_regions = ['gm-cereb'] #['cereb']#
+# PVC_flags = ['pvc-']#['pvc-' ,'']
+# data_merge_opts = ['followupplus']  #['followupplus', 'baseline', 'baselineplus', 'all'] 
+# include_biomarker_list = [['amyloid','flow'],['flow'],['amyloid']]#[['flow'],['amyloid'],['flow','amyloid']]
+# z_method = '_SC' # '_SC' or '' for supercontrol derfined z scores or GMM defined respectively
+# path_cmmt = '' #'
 
 for ref_region in ref_regions:
     for PVC_flag in PVC_flags:
         for data_merge_opt in data_merge_opts:
             for include_biomarkers in include_biomarker_list:
             
-                print('Running: ref: '+ref_region+', PVC: '+PVC_flag+', datamerge: '+data_merge_opt+' biomarkers:'+' '.join(include_biomarkers))
+                print('Running: ref: '+ref_region+', PVC: '+PVC_flag+', datamerge: '+data_merge_opt+' biomarkers:'+' '.join(include_biomarkers)+', z-score levels: '+path_cmmt)
             
                 # test or run
                 test_run = 'run' # either 'test' or 'run' determines SuStaIn settings
@@ -56,9 +65,9 @@ for ref_region in ref_regions:
                 
                 in_desc = '1946AVID2YOADSUVR_v1'#'1946-srtm-cleanandAVID27'
                 if remove_zero_subs=='yes':
-                    out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+'removezero_v1'
+                    out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+z_method+path_cmmt+'removezero_v1'
                 else:
-                    out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+'_v1'
+                    out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+z_method+path_cmmt+'_v1'
                 
                 
                 all_region_names=[]
@@ -70,12 +79,12 @@ for ref_region in ref_regions:
                         
                 #define paths
                 out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
-                datapath = out_folder+'/genZscoremodsel_out/'+PVC_flag+ref_region
-                outpath = out_folder+'/run_SuStaIn_GMM/'+PVC_flag+ref_region
+                datapath = out_folder+'/genZscoremodsel_out'+path_cmmt+'/'+PVC_flag+ref_region
+                outpath = out_folder+'/run_SuStaIn_GMM'+path_cmmt+'/'+PVC_flag+ref_region+z_method
                 
                 #reading in the z-score data
                 #datapath = '/Users/catherinescott/Documents/SuStaIn_out'
-                csvfile_in = datapath+'/zscore_allregions_'+in_desc+'-'+cmmt+'.csv'
+                csvfile_in = datapath+'/zscore_allregions_'+in_desc+'-'+cmmt+z_method+'.csv'
                 
                 
                 #load in data (size M subjects by N biomarkers, data must be z-scored)
@@ -112,45 +121,47 @@ for ref_region in ref_regions:
                 subjs = subjs[nonNaN_subjects].reset_index(drop=True)
                 status = status[nonNaN_subjects].reset_index(drop=True)     
                 
-                # delete row for 01-034 as they seem to cause issues in fitting based on amyloid
-                if PVC_flag=='pvc-':
-                    if ref_region=='cereb':
-                        if data_merge_opt=='baseline':
-                            data = np.delete(data, 311, 0)
-                            subjs.drop([311],inplace=True)
-                            status.drop([311],inplace=True) 
+                # # delete row for 01-034 as they seem to cause issues in fitting based on amyloid
+                # if PVC_flag=='pvc-':
+                #     if ref_region=='cereb':
+                #         if data_merge_opt=='baseline':
+                #             data = np.delete(data, 311, 0)
+                #             subjs.drop([311],inplace=True)
+                #             status.drop([311],inplace=True) 
 
-                        elif data_merge_opt=='baselineplus':
-                            data = np.delete(data, 439, 0)    
-                            subjs.drop([439],inplace=True)
-                            status.drop([439],inplace=True)
+                #         elif data_merge_opt=='baselineplus':
+                #             data = np.delete(data, 439, 0)    
+                #             subjs.drop([439],inplace=True)
+                #             status.drop([439],inplace=True)
                             
-                        elif data_merge_opt=='followupplus':
-                            data = np.delete(data, 439, 0)
-                            subjs.drop([439],inplace=True)
-                            status.drop([439],inplace=True)
-                        elif data_merge_opt=='all':
-                            data = np.delete(data, 654, 0)      
-                            subjs.drop([654],inplace=True)
-                            status.drop([654],inplace=True)
-                    if ref_region=='gm-cereb':
-                        if data_merge_opt=='baseline':                        
-                            data = np.delete(data, 18, 0)
-                            subjs.drop([18],inplace=True)
-                            status.drop([18],inplace=True)
+                #         elif data_merge_opt=='followupplus':
+                #             data = np.delete(data, 439, 0)
+                #             subjs.drop([439],inplace=True)
+                #             status.drop([439],inplace=True)
+                #         elif data_merge_opt=='all':
+                #             data = np.delete(data, 654, 0)      
+                #             subjs.drop([654],inplace=True)
+                #             status.drop([654],inplace=True)
+                #     if ref_region=='gm-cereb':
+                #         if data_merge_opt=='baseline':                        
+                #             data = np.delete(data, 18, 0)
+                #             subjs.drop([18],inplace=True)
+                #             status.drop([18],inplace=True)
 
-                        elif data_merge_opt=='baselineplus':
-                            data = np.delete(data, 18, 0)    
-                            subjs.drop([18],inplace=True)
-                            status.drop([18],inplace=True)
-                        elif data_merge_opt=='followupplus':
-                            data = np.delete(data, 18, 0)
-                            subjs.drop([18],inplace=True)
-                            status.drop([18],inplace=True)
-                        elif data_merge_opt=='all':
-                            data = np.delete(data, 18, 0) 
-                            subjs.drop([18],inplace=True)
-                            status.drop([18],inplace=True)
+                #         elif data_merge_opt=='baselineplus':
+                #             data = np.delete(data, 18, 0)    
+                #             subjs.drop([18],inplace=True)
+                #             status.drop([18],inplace=True)
+                #         elif data_merge_opt=='followupplus':
+                #             data = np.delete(data, 18, 0)
+                #             subjs.drop([18],inplace=True)
+                #             status.drop([18],inplace=True)
+                #         elif data_merge_opt=='all':
+                #             data = np.delete(data, 18, 0) 
+                #             subjs.drop([18],inplace=True)
+                #             status.drop([18],inplace=True)
+                          
+                        
                 
                 subjs.reset_index(inplace=True)
                 status.reset_index(inplace=True)
@@ -171,7 +182,7 @@ for ref_region in ref_regions:
                 
                 
                 ##set params------------------------------------------------------------------
-                z_lims_csv = datapath+'/zmax_allregions_'+in_desc+'-'+cmmt+'.csv' 
+                z_lims_csv = datapath+'/zmax_allregions_'+in_desc+'-'+cmmt+z_method+'.csv' 
                 z_lims_df = pd.read_csv(z_lims_csv)
                 #only include the listed regions
                 z_lims_df = z_lims_df[z_lims_df['Region'].isin(include_regions)]
@@ -237,6 +248,8 @@ for ref_region in ref_regions:
                     print(str(N_startpoints)+' starting points, '+str(N_iterations_MCMC)+' MCMC iterations')
                     
                 SuStaInLabels = region_names
+                
+                data[data>20]=20.00
                 
                 # Run SuStaIn ---------------------------------------------------------------
                 sustain_input = pySuStaIn.ZscoreSustain(data, #size M subjects by N biomarkers, data must be z-scored
@@ -380,11 +393,12 @@ for ref_region in ref_regions:
                 for train, test in cv_it:
                     test_idxs.append(test)
                 
-                # uncertain why the data type needs to be different for the 2 cases    
-                if PVC_flag=='pvc-':
+                # uncertain why the data type needs to be different for the 2 cases 
+                #I think if it needs to be a ragged array it has to be object and otherwuse shoud be int
+                if len(test_idxs[0])!=len(test_idxs[N_folds-1]):#PVC_flag=='pvc-':
                     test_idxs = np.array(test_idxs,dtype='object') #'object','int')
                 else:
-                    test_idxs = np.array(test_idxs,dtype='object')
+                    test_idxs = np.array(test_idxs,dtype='int')
                     
                 # perform cross-validation and output the cross-validation information criterion and
                 # log-likelihood on the test set for each subtypes model and fold combination
