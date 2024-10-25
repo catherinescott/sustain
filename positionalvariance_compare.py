@@ -20,6 +20,9 @@ ref_regions = ['gm-cereb','cereb'] #['cereb']#
 PVC_flags = ['pvc-','']#['pvc-' ,'']
 data_merge_opts = ['baseline', 'baselineplus','followupplus', 'all'] #['followupplus', 'baseline', 'baselineplus', 'all'] 
 include_biomarker_list = [['amyloid','flow'],['flow'],['amyloid']]#[['flow'],['amyloid'],['flow','amyloid']]
+z_method = '_SC' # '_SC' or '' for supercontrol derfined z scores or GMM defined respectively
+path_cmmt = '' 
+
 
 remove_zero_subs='no'
 
@@ -31,65 +34,70 @@ col_height = im_height*len(data_merge_opts)
 #collage = Image.new("RGBA", ((col_width),(col_height)))
 fontsize = 30
 font = ImageFont.truetype("/System/Library/Fonts/Supplemental/arial.ttf", fontsize)
+N_S_max = 2
 
 for ref_region in ref_regions:
     for include_biomarkers in include_biomarker_list:
-        
-        data_merge_idx = 0
-        collage = Image.new("RGBA", ((col_width),(col_height))) 
-        for i in range(0,col_height,im_height):
+        for s in range(0,N_S_max+1):
             
-            PVC_idx = 0
-            for j in range(0,col_width,im_width):
+            data_merge_idx = 0
+            collage = Image.new("RGBA", ((col_width),(col_height))) 
+            for i in range(0,col_height,im_height):
                 
-                if PVC_idx>len(PVC_flags)-1:
-                    break
-                if data_merge_idx>len(data_merge_opts)-1:
-                    break               
-                #print(include_biomarkers)
-                if include_biomarkers==['flow']:
-                    s=0
-                else:
-                    s=1
-                
-                data_merge_opt=data_merge_opts[data_merge_idx]
-                PVC_flag = PVC_flags[PVC_idx ]                
-            
-                print('Running: ref: '+ref_region+', PVC: '+PVC_flag+', datamerge: '+data_merge_opt+' biomarkers:'+' '.join(include_biomarkers))
-                
-                cmmt = PVC_flag+ref_region+'_'+ data_merge_opt
-                test_run = 'run'
-                ## data in--------------------------------------------------------------------
-                #descriptions to use for input and output data
-                
-                in_desc = '1946AVID2YOADSUVR_v1'#'1946-srtm-cleanandAVID27'
-                if remove_zero_subs=='yes':
-                    out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+'removezero_v1'
-                else:
-                    out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+'_v1'
-                
-                
-                out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
-                outpath = out_folder+'/run_SuStaIn_GMM/'+PVC_flag+ref_region
-                
-                dataset_name = out_desc
-                output_folder = outpath+'/'+dataset_name
-                CVIC_plot_path = os.path.join(output_folder,'SuStaIn_output_subtype_'+ str(s)+out_desc+'.pdf') #os.path.join(output_folder,'CVIC_'+out_desc+'.pdf')
-                
-                if os.path.isfile(CVIC_plot_path):
-                    new_img = convert_from_path(CVIC_plot_path)
-                    new_img = new_img[0]
-                    edit_img = ImageDraw.Draw(new_img)
-                    #edit_img.text((15,15), 'ref: '+ref_region+', PVC: '+PVC_flag+', datamerge: '+data_merge_opt+', biomarkers:'+' '.join(include_biomarkers), (0, 0, 0),font=font)
+                PVC_idx = 0
+                for j in range(0,col_width,im_width):
                     
-                    collage.paste(new_img, (j,i))
-                else:
-                    print('file missing: '+CVIC_plot_path)
-                print('data_merge_idx '+str(data_merge_idx)+' PVC_idx: '+str(PVC_idx))
+                    if PVC_idx>len(PVC_flags)-1:
+                        break
+                    if data_merge_idx>len(data_merge_opts)-1:
+                        break               
+                    #print(include_biomarkers)
+                    # if include_biomarkers==['flow']:
+                    #     s=0
+                    # else:
+                    #     s=1
+                    
+                    data_merge_opt=data_merge_opts[data_merge_idx]
+                    PVC_flag = PVC_flags[PVC_idx ]                
                 
-                PVC_idx = PVC_idx+1
-            data_merge_idx=data_merge_idx+1
-                
-        collage.show()
-        collage.save(out_folder+'/run_SuStaIn_GMM/PVD_'+ref_region+'_'+'_'.join(include_biomarkers)+'.png')
-        
+                    print('Running: ref: '+ref_region+', PVC: '+PVC_flag+', datamerge: '+data_merge_opt+' biomarkers:'+' '.join(include_biomarkers))
+                    
+                    cmmt = PVC_flag+ref_region+'_'+ data_merge_opt
+                    test_run = 'run'
+                    ## data in--------------------------------------------------------------------
+                    #descriptions to use for input and output data
+                    
+                    in_desc = '1946AVID2YOADSUVR_v1'#'1946-srtm-cleanandAVID27'
+                    if remove_zero_subs=='yes':
+                        out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+z_method+path_cmmt+'removezero_v1'
+                    else:
+                        out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+z_method+path_cmmt+'_v1'
+                    
+                    
+                    in_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
+                    inpath = in_folder+'/run_SuStaIn_GMM/'+PVC_flag+ref_region+z_method
+                    out_folder = os.path.join(in_folder,'run_SuStaIn_GMM','summary_figures', 'positional_variance')
+                    if not os.path.exists(out_folder):
+                        os.makedirs(out_folder)
+                    
+                    dataset_name = out_desc
+                    input_folder = inpath+'/'+dataset_name
+                    CVIC_plot_path = os.path.join(input_folder,'SuStaIn_output_subtype_'+ str(s)+out_desc+'.pdf') #os.path.join(output_folder,'CVIC_'+out_desc+'.pdf')
+                    
+                    if os.path.isfile(CVIC_plot_path):
+                        new_img = convert_from_path(CVIC_plot_path)
+                        new_img = new_img[0]
+                        edit_img = ImageDraw.Draw(new_img)
+                        #edit_img.text((15,15), 'ref: '+ref_region+', PVC: '+PVC_flag+', datamerge: '+data_merge_opt+', biomarkers:'+' '.join(include_biomarkers), (0, 0, 0),font=font)
+                        
+                        collage.paste(new_img, (j,i))
+                    else:
+                        print('file missing: '+CVIC_plot_path)
+                    print('data_merge_idx '+str(data_merge_idx)+' PVC_idx: '+str(PVC_idx))
+                    
+                    PVC_idx = PVC_idx+1
+                data_merge_idx=data_merge_idx+1
+                    
+            collage.show()
+            collage.save(out_folder+'/PVD_'+ref_region+'_'+'_'.join(include_biomarkers)+z_method+'s'+str(s)+'.png')
+            
