@@ -74,6 +74,9 @@ for ref_region in ref_regions:
                     out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
                     #outpath = out_folder+'/run_SuStaIn_GMM/'+PVC_flag+ref_region
                     outpath = out_folder+'/genZscoremodsel_out'+path_cmmt+'/'+PVC_flag+ref_region
+                    figures_folder = out_folder+'/genZscoremodsel_out'+path_cmmt+'/figures/GMM_compare_hist/'+PVC_flag+ref_region
+                    if not os.path.exists(figures_folder):
+                        os.makedirs(figures_folder)
                     #output_folder= 
                     
                     # dataset_name = out_desc
@@ -95,5 +98,5 @@ for ref_region in ref_regions:
                 region_name_idx=region_name_idx+1
                     
             collage.show()
-            collage.save(out_folder+'/genZscoremodsel_out'+path_cmmt+'/GMMsummary_'+ref_region+'_'+'_'.join(include_biomarkers)+'_'+ data_merge_opt+sc_cmmt+'.png')
+            collage.save(figures_folder+'/GMMsummary_'+ref_region+'_'+'_'.join(include_biomarkers)+'_'+ data_merge_opt+sc_cmmt+'.png')
             
