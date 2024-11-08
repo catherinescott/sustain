@@ -5,7 +5,7 @@ Created on Tue Oct  8 12:39:39 2024
 
 @author: catherinescott
 """
-
+import os
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -48,7 +48,11 @@ for data_merge_opt in data_merge_opts:
             out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
             #datapath = out_folder+'/SUVR_data_merge_out/'+PVC_flag+ref_region
             outpath = out_folder+'/genZscoremodsel_out'+path_cmmt
-
+            
+            figures_folder = outpath+'/figures/plot_boxes/'
+            if not os.path.exists(figures_folder):
+                os.makedirs(figures_folder)
+            
             plt.figure()
             plot_data = mean_array[:,0:2,:,ref_regions.index(ref_region),params.index(param),data_merge_opts.index(data_merge_opt)]
             plot_data_reshape = np.concatenate((plot_data[:,0,0],plot_data[:,1,0],plot_data[:,0,1],plot_data[:,1,1]), axis=0)
@@ -57,10 +61,10 @@ for data_merge_opt in data_merge_opts:
             #df = pd.DataFrame({'PVC and mean':label_list_box,data_merge_opt+' '+param+' '+ref_region:plot_data_reshape.reshape(-1)})
             sns.boxplot(  y=data_merge_opt+' '+param+' '+ref_region, x= 'PVC and mean', data=df,  orient='v' )
             
-            plt.savefig(os.path.join(outpath,'GMM_mean_'+'_'+ param+'_'+ref_region+'_'+data_merge_opt+'.pdf'))
+            plt.savefig(os.path.join(figures_folder,'GMM_mean_'+'_'+ param+'_'+ref_region+'_'+data_merge_opt+'.pdf'))
             
             plt.figure()
             plot_data_reshape_diff = np.concatenate((plot_data[:,0,0]-plot_data[:,1,0],plot_data[:,0,1]-plot_data[:,1,1]), axis=0)
             df_diff= pd.DataFrame({'Difference':label_list_box_diff,data_merge_opt+' '+param+' '+ref_region:plot_data_reshape_diff})
             sns.boxplot(  y=data_merge_opt+' '+param+' '+ref_region, x= 'Difference', data=df_diff,  orient='v' )
-            plt.savefig(os.path.join(outpath,'GMM_meandiff_'+ param+'_'+ref_region+'_'+data_merge_opt+'.pdf'))
+            plt.savefig(os.path.join(figures_folder,'GMM_meandiff_'+ param+'_'+ref_region+'_'+data_merge_opt+'.pdf'))
