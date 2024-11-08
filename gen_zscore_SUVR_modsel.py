@@ -69,7 +69,8 @@ mean_array[:] = np.nan
 # step 1) read in relevent csv's----------------------------------------------------------------
 
 image_counter = 0
-path_cmmt = '_single' #'_single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
+path_cmmt = '_noBIC' #'_single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
+# '_noBIC' doesnt do anything, it is just to show that I have removed the BIC threshold
 
 for ref_region in ref_regions:
     for PVC_flag in PVC_flags:
@@ -254,14 +255,28 @@ for ref_region in ref_regions:
                         print(str(components)+' comp: BIC='+str(round(gmm.bic(X),1))+', AIC='+str(round(gmm.aic(X),1))+')')
                         
                     # see whether we will use this region or not
-                                        
+                     
+                    if param == 'flow':
+                        z_cutoff = mu[0]-(2*sigma[0])
+                        n_subjects_above_thresh = len(X[X<z_cutoff])
+                        
+                    else:
+                        z_cutoff = mu[0]+(2*sigma[0])
+                        n_subjects_above_thresh = len(X[X>z_cutoff])
+                    percent_above_thresh = 100*(n_subjects_above_thresh/len(X))
+                    
+                    # replaced BIC condition with percent above threshold
+                    if percent_above_thresh<2.5:
                     # BIC method (using GMM on all data)
-                    if BIC[0]<=BIC[1] or abs(BIC[1]-BIC[0])<10:
-                        # one component model has lower BIC, dont include this region
-                        print(region+' '+param+' EXCLUDED as 1 gaussian has lower BIC')
+                    #if BIC[0]<=BIC[1] or abs(BIC[1]-BIC[0])<10:
+                        # # one component model has lower BIC, dont include this region
+                        # print(region+' '+param+' EXCLUDED as 1 gaussian has lower BIC')
+                        # number of subjects above threshold no more than expected due to chance, dont include this region
+                        print(region+' '+param+' EXCLUDED as number of subjects above threshold '+str(round(percent_above_thresh,2))+' no more than expected due to chance')
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z_max']='NaN'
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z']='NaN'
-                        _ = plt.xlabel('EXCLUDED '+region+' '+param+' (BIC diff= '+str(round(abs(BIC[1]-BIC[0]),1))+')') 
+                        # _ = plt.xlabel('EXCLUDED '+region+' '+param+' (BIC diff= '+str(round(abs(BIC[1]-BIC[0]),1))+')') 
+                        _ = plt.xlabel('EXCLUDED '+region+' '+param+' (%above thresh= '+str(round(percent_above_thresh,1))+')') 
                         plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'.pdf'))
                         
                         # #add what it would look like usng the supercontrol fit
@@ -270,9 +285,10 @@ for ref_region in ref_regions:
                         # plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'_SC.pdf'))
                         
                     else: # two component model has lower BIC
-                        print(region+' '+param+' INCLUDED as 2 gaussian has lower BIC')
+                        print(region+' '+param+' INCLUDED as number of subjects above threshold '+str(round(percent_above_thresh,2))+' no more than expected due to chance')
                         mean_array[region_names.index(region),:,PVC_flags.index(PVC_flag),ref_regions.index(ref_region), params.index(param),data_merge_opts.index(data_merge_opt)] = [mu[0],mu[1],sigma[0],sigma[1]]
-                        _ = plt.xlabel(region+' '+param+' (BIC diff= '+str(round(abs(BIC[1]-BIC[0]),1))+')') 
+                        #_ = plt.xlabel(region+' '+param+' (BIC diff= '+str(round(abs(BIC[1]-BIC[0]),1))+')') 
+                        _ = plt.xlabel(region+' '+param+' (%above thresh= '+str(round(percent_above_thresh,1))+')') 
                         plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'.pdf'))                        
                         
                         # #add what it would look like usng the supercontrol fit
