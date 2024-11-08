@@ -28,12 +28,13 @@ include_regions = ['frontal','parietal','precuneus','occipital','temporal','insu
 # data_merge_opts = ['baseline', 'baselineplus'] #['followupplus', 'baseline', 'baselineplus', 'all'] 
 # include_biomarker_list = [['amyloid','flow'],['amyloid'],['flow']]#[['flow'],['amyloid'],['flow','amyloid']]
 
-ref_regions = ['gm-cereb','cereb'] #['cereb']#
-PVC_flags = ['' ,'pvc-']#['pvc-' ,'']
-data_merge_opts = ['baseline', 'baselineplus', 'followupplus', 'all']  #['followupplus', 'baseline', 'baselineplus', 'all'] 
+ref_regions = ['cereb']#['gm-cereb','cereb'] #['cereb']#
+PVC_flags = ['pvc-']#['pvc-' ,'']
+data_merge_opts = ['followupplus']#['baseline', 'baselineplus', 'followupplus', 'all']  #['followupplus', 'baseline', 'baselineplus', 'all'] 
 include_biomarker_list = [['amyloid','flow'],['flow'],['amyloid']]#[['flow'],['amyloid'],['flow','amyloid']]
-z_method = '_SC' # '_SC' or '' for supercontrol derfined z scores or GMM defined respectively
+z_method = '' # '_SC' or '' for supercontrol derfined z scores or GMM defined respectively
 path_cmmt = '' #'_single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
+cross_val = 'yes' # 'yes' will do cross validation, any other response wont
 
 # ref_regions = ['gm-cereb'] #['cereb']#
 # PVC_flags = ['pvc-']#['pvc-' ,'']
@@ -229,7 +230,7 @@ for ref_region in ref_regions:
                 
                 
                 # Input the settings for z-score SuStaIn
-                N_S_max = 3  #max number of subtypes to fit
+                N_S_max = 4  #max number of subtypes to fit
                 if test_run == 'test':
                     
                     print('Running with test params:') 
@@ -239,7 +240,7 @@ for ref_region in ref_regions:
                 elif test_run == 'run': 
                     print('Running with run params:') 
                     N_startpoints = 25 #25 recommended, 10 for testing
-                    N_iterations_MCMC = int(1.5e5) #int(1e5) or int(1e6) recommended, 1e4 for testing
+                    N_iterations_MCMC = int(1e6) #int(1e5) or int(1e6) recommended, 1e4 for testing
                     print(str(N_startpoints)+' starting points, '+str(N_iterations_MCMC)+' MCMC iterations')
                 else:
                     print('Test or run not given, assume test...')
@@ -317,7 +318,7 @@ for ref_region in ref_regions:
                     _=plt.suptitle('ref: '+ref_region+', PVC: '+PVC_flag+', datamerge: '+data_merge_opt+' biomarkers:'+' '.join(include_biomarkers))
                     plt.savefig(os.path.join(output_folder,'SuStaIn_output_subtype_'+ str(s)+out_desc+'.pdf'))
                     
-                
+
                     #analysis of results
                     #pickle_filename_s = pickle_path + '/pickle_files/' + dataset_name + '_subtype' + str(s) + '.pickle'
                     pk = pd.read_pickle(pickle_filename_s)
@@ -349,7 +350,7 @@ for ref_region in ref_regions:
                     
                     #can use this to re-run and exclude
                     stagezerosubs = zdata.loc[zdata.ml_stage==0,'Subject']
-                    stagezerosubs.to_csv(output_folder+'stagezerosubjs_'+str(s)+'.csv') # need to come back to this to implement in a more general way
+                    stagezerosubs.to_csv(output_folder+'stagezerosubjs_s'+str(s)+'_'+ref_region+'_'+PVC_flag+data_merge_opt+z_method+path_cmmt+'.csv') # need to come back to this to implement in a more general way
                     
                     zdata.ml_subtype.value_counts()
                     
@@ -378,70 +379,70 @@ for ref_region in ref_regions:
                     plt.savefig(os.path.join(output_folder,'subtypeprob_'+out_desc+'_'+str(s)+'.pdf'))
                     
                 #cross validation
-                
-                # choose the number of folds - here i've used three for speed but i recommend 10 typically
-                N_folds = 5
-                
-                # generate stratified cross-validation training and test set splits
-                labels = zdata.Status.values
-                cv = sklearn.model_selection.StratifiedKFold(n_splits=N_folds, shuffle=True)
-                cv_it = cv.split(zdata, labels)
-                
-                # SuStaIn currently accepts ragged arrays, which will raise problems in the future.
-                # We'll have to update this in the future, but this will have to do for now
-                test_idxs = []
-                for train, test in cv_it:
-                    test_idxs.append(test)
-                
-                # uncertain why the data type needs to be different for the 2 cases 
-                #I think if it needs to be a ragged array it has to be object and otherwuse shoud be int
-                if len(test_idxs[0])!=len(test_idxs[N_folds-1]):#PVC_flag=='pvc-':
-                    test_idxs = np.array(test_idxs,dtype='object') #'object','int')
-                else:
-                    test_idxs = np.array(test_idxs,dtype='int')
+                if cross_val == 'yes':
+                    # choose the number of folds - here i've used three for speed but i recommend 10 typically
+                    N_folds = 10 #5 changed to 10 on 06/11/2024 at 13:22
                     
-                # perform cross-validation and output the cross-validation information criterion and
-                # log-likelihood on the test set for each subtypes model and fold combination
-                CVIC, loglike_matrix     = sustain_input.cross_validate_sustain_model(test_idxs)
-                
-                
-                # go through each subtypes model and plot the log-likelihood on the test set and the CVIC
-                print("CVIC for each subtype model: " + str(CVIC))
-                print("Average test set log-likelihood for each subtype model: " + str(np.mean(loglike_matrix, 0)))
-                
-                plt.figure()    
-                plt.plot(np.arange(N_S_max,dtype=int),CVIC)
-                plt.xticks(np.arange(N_S_max,dtype=int))
-                plt.ylabel('CVIC')  
-                plt.xlabel('Subtypes model') 
-                plt.title('CVIC')
-                #print('saving figure as: '+os.path.join(output_folder,'CVIC_'+out_desc+'.pdf'))
-                plt.savefig(os.path.join(output_folder,'CVIC_'+out_desc+'.pdf'))
-                
-                
-                plt.figure()
-                df_loglike = pd.DataFrame(data = loglike_matrix, columns = ["s_" + str(i) for i in range(sustain_input.N_S_max)])
-                df_loglike.boxplot(grid=False)
-                plt.ylabel('Log likelihood')  
-                plt.xlabel('Subtypes model') 
-                plt.title('Test set log-likelihood across folds')
-                plt.savefig(os.path.join(output_folder,'LL_'+out_desc+'.pdf'))
-                
-                #Another useful output of the cross-validation that you can look at are positional variance diagrams averaged across cross-validation folds. These give you an idea of the variability in the progression patterns across different training datasets
-                #this part estimates cross-validated positional variance diagrams
-                for i in range(N_S_max):
-                    sustain_input.combine_cross_validated_sequences(i+1, N_folds)
+                    # generate stratified cross-validation training and test set splits
+                    labels = zdata.Status.values
+                    cv = sklearn.model_selection.StratifiedKFold(n_splits=N_folds, shuffle=True)
+                    cv_it = cv.split(zdata, labels)
                     
-                    N_S_selected = i+1#2
+                    # SuStaIn currently accepts ragged arrays, which will raise problems in the future.
+                    # We'll have to update this in the future, but this will have to do for now
+                    test_idxs = []
+                    for train, test in cv_it:
+                        test_idxs.append(test)
                     
-                #dont need it to replot the original as I've already saved it
-                #pySuStaIn.ZscoreSustain._plot_sustain_model(sustain_input,samples_sequence,samples_f,M,subtype_order=(0,1))
-                #_ = plt.suptitle('SuStaIn output')
-                    plt.figure(4+i)
-                    sustain_input.combine_cross_validated_sequences(N_S_selected, N_folds)
-                    _ = plt.suptitle('Cross-validated SuStaIn output')
-                    plt.savefig(os.path.join(output_folder,'CV_positionalvariance_s'+str(N_S_selected)+out_desc+'.pdf'))
+                    # uncertain why the data type needs to be different for the 2 cases 
+                    #I think if it needs to be a ragged array it has to be object and otherwuse shoud be int
+                    if len(test_idxs[0])!=len(test_idxs[N_folds-1]):#PVC_flag=='pvc-':
+                        test_idxs = np.array(test_idxs,dtype='object') #'object','int')
+                    else:
+                        test_idxs = np.array(test_idxs,dtype='int')
+                        
+                    # perform cross-validation and output the cross-validation information criterion and
+                    # log-likelihood on the test set for each subtypes model and fold combination
+                    CVIC, loglike_matrix     = sustain_input.cross_validate_sustain_model(test_idxs)
                     
+                    
+                    # go through each subtypes model and plot the log-likelihood on the test set and the CVIC
+                    print("CVIC for each subtype model: " + str(CVIC))
+                    print("Average test set log-likelihood for each subtype model: " + str(np.mean(loglike_matrix, 0)))
+                    
+                    plt.figure()    
+                    plt.plot(np.arange(N_S_max,dtype=int),CVIC)
+                    plt.xticks(np.arange(N_S_max,dtype=int))
+                    plt.ylabel('CVIC')  
+                    plt.xlabel('Subtypes model') 
+                    plt.title('CVIC')
+                    #print('saving figure as: '+os.path.join(output_folder,'CVIC_'+out_desc+'.pdf'))
+                    plt.savefig(os.path.join(output_folder,'CVIC_'+out_desc+'.pdf'))
+                    
+                    
+                    plt.figure()
+                    df_loglike = pd.DataFrame(data = loglike_matrix, columns = ["s_" + str(i) for i in range(sustain_input.N_S_max)])
+                    df_loglike.boxplot(grid=False)
+                    plt.ylabel('Log likelihood')  
+                    plt.xlabel('Subtypes model') 
+                    plt.title('Test set log-likelihood across folds')
+                    plt.savefig(os.path.join(output_folder,'LL_'+out_desc+'.pdf'))
+                    
+                    #Another useful output of the cross-validation that you can look at are positional variance diagrams averaged across cross-validation folds. These give you an idea of the variability in the progression patterns across different training datasets
+                    #this part estimates cross-validated positional variance diagrams
+                    for i in range(N_S_max):
+                        sustain_input.combine_cross_validated_sequences(i+1, N_folds)
+                        
+                        N_S_selected = i+1#2
+                        
+                    #dont need it to replot the original as I've already saved it
+                    #pySuStaIn.ZscoreSustain._plot_sustain_model(sustain_input,samples_sequence,samples_f,M,subtype_order=(0,1))
+                    #_ = plt.suptitle('SuStaIn output')
+                        plt.figure(4+i)
+                        sustain_input.combine_cross_validated_sequences(N_S_selected, N_folds)
+                        _ = plt.suptitle('Cross-validated SuStaIn output')
+                        plt.savefig(os.path.join(output_folder,'CV_positionalvariance_s'+str(N_S_selected)+out_desc+'.pdf'))
+                        
     
     
                 
