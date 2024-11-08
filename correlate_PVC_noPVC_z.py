@@ -10,6 +10,7 @@ Created on Wed Jul  3 16:12:09 2024
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 
 region_names =['composite','frontal','parietal','precuneus','occipital','temporal','insula']
 variable_types = ['z','suvr']
@@ -71,22 +72,27 @@ for chosen_variable in variable_types:
                 min_plot = min(min(no_pvc_data),min(pvc_data))
                 max_plot = max(max(no_pvc_data),max(pvc_data))
                 ax[row_no,col_no].plot([min_plot,max_plot], [min_plot,max_plot], color='k', linestyle='dashed',linewidth=2)
-                ax[row_no,col_no].scatter(no_pvc_data, pvc_data, label=variable_type.replace("_", ""))
-            
+                ax[row_no,col_no].scatter(no_pvc_data, pvc_data, label=variable_type.replace("_", ""), alpha=0.2)
+                no_pvc_data = np.squeeze(no_pvc_data)
+                pvc_data = np.squeeze(pvc_data)
+                ax[row_no,col_no].plot([min_plot[0],max_plot[0]], np.poly1d(np.polyfit(no_pvc_data, pvc_data, 1))([min_plot[0],max_plot[0]]),label=variable_type.replace("_", "")+'fit')
             
             
             variable_nm_2= region+variable_type_2#'occipital_amyloid_z'
             
-            if variable_nm_2+'_nopvc' and variable_nm_2+'_pvc' in df_merged.columns:
+            if variable_nm_2+'_nopvc' in df_merged.columns and variable_nm_2+'_pvc' in df_merged.columns:
                             
                 no_pvc_data_2=df_merged[[variable_nm_2+'_nopvc']].values
                 pvc_data_2=df_merged[[variable_nm_2+'_pvc']].values
-                ax[row_no,col_no].scatter(no_pvc_data_2, pvc_data_2, label=variable_type_2.replace("_", ""))
-                
+                no_pvc_data_2 = np.squeeze(no_pvc_data_2)
+                pvc_data_2 = np.squeeze(pvc_data_2)
+                ax[row_no,col_no].scatter(no_pvc_data_2, pvc_data_2, label=variable_type_2.replace("_", ""), alpha=0.2)
+                #ax[row_no,col_no].plot(np.unique(no_pvc_data_2), np.poly1d(np.polyfit(no_pvc_data_2, pvc_data_2, 1))(np.unique(no_pvc_data_2)),label=variable_type.replace("_", "")+'fit')  
+                ax[row_no,col_no].plot([min_plot[0],max_plot[0]], np.poly1d(np.polyfit(no_pvc_data_2, pvc_data_2, 1))([min_plot[0],max_plot[0]]),label=variable_type.replace("_", "")+'fit')  
                 
             ax[row_no,col_no].legend()
             #ax[row_no,col_no].set_title(variable_nm+' ref: '+ref_region)
-            ax[row_no,col_no].set_title('ref: '+ref_region)
+            ax[row_no,col_no].set_title('ref: '+ref_region+', region: '+region)
             ax[row_no,col_no].set(xlabel='no PVC', ylabel='PVC')
             #ax.xlabel("no PVC")
             #ax.ylabel("PVC")
