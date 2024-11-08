@@ -266,7 +266,7 @@ for ref_region in ref_regions:
                     percent_above_thresh = 100*(n_subjects_above_thresh/len(X))
                     
                     # replaced BIC condition with percent above threshold
-                    if percent_above_thresh<2.5:
+                    if percent_above_thresh<2.6:
                     # BIC method (using GMM on all data)
                     #if BIC[0]<=BIC[1] or abs(BIC[1]-BIC[0])<10:
                         # # one component model has lower BIC, dont include this region
@@ -364,7 +364,7 @@ for ref_region in ref_regions:
                         n_subjects_above_thresh = len(X[X>z_cutoff])
                     percent_above_thresh = 100*(n_subjects_above_thresh/len(X))
                     
-                    if percent_above_thresh<2.5:
+                    if percent_above_thresh<2.6:
                         # don't have nore subjects outside 2 SD than you would expect based on chance
                         print(region+' '+param+' EXCLUDED based on 2 SD')
 
