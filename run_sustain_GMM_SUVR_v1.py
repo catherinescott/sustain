@@ -33,8 +33,12 @@ PVC_flags = ['pvc-']#['pvc-' ,'']
 data_merge_opts = ['followupplus']#['baseline', 'baselineplus', 'followupplus', 'all']  #['followupplus', 'baseline', 'baselineplus', 'all'] 
 include_biomarker_list = [['amyloid','flow'],['flow'],['amyloid']]#[['flow'],['amyloid'],['flow','amyloid']]
 z_method = '' # '_SC' or '' for supercontrol derfined z scores or GMM defined respectively
-path_cmmt = '' #'_single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
-cross_val = 'yes' # 'yes' will do cross validation, any other response wont
+path_cmmt = '_noBIC_amyloidsingle' #'_single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
+cross_val = 'no' # 'yes' will do cross validation, any other response wont
+
+
+#remove subjects which were previously put in stage 0?
+remove_zero_subs = 'no'#'yes' #either yes or no
 
 # ref_regions = ['gm-cereb'] #['cereb']#
 # PVC_flags = ['pvc-']#['pvc-' ,'']
@@ -53,8 +57,7 @@ for ref_region in ref_regions:
                 # test or run
                 test_run = 'run' # either 'test' or 'run' determines SuStaIn settings
                 
-                #remove subjects which were previously put in stage 0?
-                remove_zero_subs = 'no'#'yes' #either yes or no
+
                 
                 #ref_region = 'cereb' #['cereb', 'gm-cereb']
                 #PVC_flag = 'pvc-' #['pvc-' ,'']
@@ -69,7 +72,21 @@ for ref_region in ref_regions:
                     out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+z_method+path_cmmt+'removezero_v1'
                 else:
                     out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+z_method+path_cmmt+'_v1'
-                
+
+                #define paths
+                out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
+                datapath = out_folder+'/genZscoremodsel_out'+path_cmmt+'/'+PVC_flag+ref_region
+                # if remove_zero_subs=='yes':
+                #     zero_subs_cmmt='_removezero'
+                # else:
+                #     zero_subs_cmmt=''
+                outpath = out_folder+'/run_SuStaIn_GMM'+path_cmmt+'/'+PVC_flag+ref_region+z_method
+
+                #output naming and folders
+                dataset_name = out_desc
+                output_folder = outpath+'/'+dataset_name
+                if not os.path.isdir(output_folder):
+                    os.makedirs(output_folder)                
                 
                 all_region_names=[]
                 #create list to take values from csv files
@@ -78,10 +95,6 @@ for ref_region in ref_regions:
                     
                         all_region_names.append(rg+'_'+b+'_z')
                         
-                #define paths
-                out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
-                datapath = out_folder+'/genZscoremodsel_out'+path_cmmt+'/'+PVC_flag+ref_region
-                outpath = out_folder+'/run_SuStaIn_GMM'+path_cmmt+'/'+PVC_flag+ref_region+z_method
                 
                 #reading in the z-score data
                 #datapath = '/Users/catherinescott/Documents/SuStaIn_out'
@@ -92,9 +105,9 @@ for ref_region in ref_regions:
                 #doesnt skip the header row so that the biomarkers can be ordered according to region_names
                 #(header row removed in conversion to numpy)
                 
-                # if we want to get rid of subjects in stage zero *note that I havent fixed this for the updates i have made to filenames 21/06/2024
+                # if we want to get rid of subjects in stage zero (uses single subtype s=0 results)
                 if remove_zero_subs=='yes':
-                    df_subjs_to_drop = pd.read_csv('/Users/catherinescott/Documents/SuStaIn_out/SuStaIn_crossvalandanalysis/1946AVID2YOADSUVR_v1-GMM_flow_amyloid_run__v1stagezerosubjs.csv')
+                    df_subjs_to_drop = pd.read_csv(output_folder.replace('removezero','')+'stagezerosubjs_s0_'+ref_region+'_'+PVC_flag+data_merge_opt+z_method+path_cmmt+'.csv')
                     df_all = pd.read_csv(csvfile_in)
                     cond = df_all['Subject'].isin(df_subjs_to_drop['Subject'])
                     df_all.drop(df_all[cond].index, inplace = True)
@@ -174,13 +187,7 @@ for ref_region in ref_regions:
                 #replace status ctl vs label as 0 and 1
                 zdata.replace('CTL',0,inplace=True)
                 zdata.replace('PT',1,inplace=True)  
-                            
-                #output naming and folders
-                dataset_name = out_desc
-                output_folder = outpath+'/'+dataset_name
-                if not os.path.isdir(output_folder):
-                    os.makedirs(output_folder)
-                
+                                        
                 
                 ##set params------------------------------------------------------------------
                 z_lims_csv = datapath+'/zmax_allregions_'+in_desc+'-'+cmmt+z_method+'.csv' 
@@ -382,6 +389,12 @@ for ref_region in ref_regions:
                 if cross_val == 'yes':
                     # choose the number of folds - here i've used three for speed but i recommend 10 typically
                     N_folds = 10 #5 changed to 10 on 06/11/2024 at 13:22
+                    
+                    # I want to make sure that AVID2 and YOAD data get split up in the stratification
+                    ss = zdata['Subject'].str.contains(pat='AVID20*', regex=True)
+                    dd = zdata['Subject'].str.contains(pat='01-0*', regex=True)
+                    zdata.loc[ss,'Status']=2
+                    zdata.loc[dd,'Status']=3
                     
                     # generate stratified cross-validation training and test set splits
                     labels = zdata.Status.values
