@@ -52,6 +52,8 @@ region_names =['composite','frontal','parietal','precuneus','occipital','tempora
 plot_centile = 97.5
 cutoff_centile = 97.5
 
+ISSUE_CHECK = 0
+
 # ref_regions = ['cereb']#['cereb', 'gm-cereb']
 # PVC_flags = ['pvc-' ,'']
 # data_merge_opts = ['baseline']#['followupplus', 'baseline', 'baselineplus', 'all'] 
@@ -69,7 +71,7 @@ mean_array[:] = np.nan
 # step 1) read in relevent csv's----------------------------------------------------------------
 
 image_counter = 0
-path_cmmt = '_noBIC' #'_single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
+path_cmmt = '_noBIC_amyloidsingle' #'_single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
 # '_noBIC' doesnt do anything, it is just to show that I have removed the BIC threshold
 
 for ref_region in ref_regions:
@@ -272,7 +274,7 @@ for ref_region in ref_regions:
                         # # one component model has lower BIC, dont include this region
                         # print(region+' '+param+' EXCLUDED as 1 gaussian has lower BIC')
                         # number of subjects above threshold no more than expected due to chance, dont include this region
-                        print(region+' '+param+' EXCLUDED as number of subjects above threshold '+str(round(percent_above_thresh,2))+' no more than expected due to chance')
+                        print(region+' '+param+' EXCLUDED as number of subjects above threshold ('+str(round(percent_above_thresh,2))+'%) no more than expected due to chance')
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z_max']='NaN'
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z']='NaN'
                         # _ = plt.xlabel('EXCLUDED '+region+' '+param+' (BIC diff= '+str(round(abs(BIC[1]-BIC[0]),1))+')') 
@@ -285,7 +287,7 @@ for ref_region in ref_regions:
                         # plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'_SC.pdf'))
                         
                     else: # two component model has lower BIC
-                        print(region+' '+param+' INCLUDED as number of subjects above threshold '+str(round(percent_above_thresh,2))+' no more than expected due to chance')
+                        print(region+' '+param+' INCLUDED as number of subjects above threshold ('+str(round(percent_above_thresh,2))+'%) more than expected due to chance')
                         mean_array[region_names.index(region),:,PVC_flags.index(PVC_flag),ref_regions.index(ref_region), params.index(param),data_merge_opts.index(data_merge_opt)] = [mu[0],mu[1],sigma[0],sigma[1]]
                         #_ = plt.xlabel(region+' '+param+' (BIC diff= '+str(round(abs(BIC[1]-BIC[0]),1))+')') 
                         _ = plt.xlabel(region+' '+param+' (%above thresh= '+str(round(percent_above_thresh,1))+')') 
@@ -330,6 +332,25 @@ for ref_region in ref_regions:
                             else:
                                 R1_z = 1*(x_intersect-mu[0])/sigma[0]
                                 R1_max = 3 #1*(mu[1]-mu[0])/sigma[0]
+                        elif '_amyloidsingle' in path_cmmt:
+                            if param == 'flow':
+                                print('Using cut offs at 1 2 and 3 std dev for flow')  
+                                if len(X_z[X_z>3])>n_subjects_per_z:
+                                    R1_max = 5
+                                    R1_z = [1,2,3]
+                                elif len(X_z[X_z>2])>n_subjects_per_z:
+                                    R1_max = 3
+                                    R1_z = [1,2]
+                                else:
+                                    R1_max = 2
+                                    R1_z= [1]     
+                            else:
+                                print('using single cut off at GMM intersection, max at mean of mu[1] for amyloid')
+                                R1_max = (mu[1]-mu[0])/sigma[0]
+                                R1_z= [(x_intersect-mu[0])/sigma[0]]  
+                                if mu[1]<x_intersect:
+                                    print('PROBLEM WITH USING MU1 AS MAX!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1')
+                                    ISSUE_CHECK=ISSUE_CHECK+1
                         else:
                             
                             print('Using cut offs at 1 2 and 3 std dev')
@@ -413,8 +434,26 @@ for ref_region in ref_regions:
                             #when path_cmmt = 'single'
                             R1_sc_max = 3
                             R1_sc_z= [2]    
+                        elif '_amyloidsingle' in path_cmmt:
+                            if param == 'flow':
+                                print('Using cut offs at 1 2 and 3 std dev for flow')  
+                                if len(X_sc_z[X_sc_z>3])>n_subjects_per_z:
+                                    R1_sc_max = 5
+                                    R1_sc_z = [1,2,3]
+                                elif len(X_sc_z[X_sc_z>2])>n_subjects_per_z:
+                                    R1_sc_max = 3
+                                    R1_sc_z = [1,2]
+                                else:
+                                    R1_sc_max = 2
+                                    R1_sc_z= [1]      
+                            else:
+                                print('using single cut off at GMM intersection, max at mean of mu[1] for amyloid')
+                                R1_sc_max = (mu[1]-mu_sc)/sigma_sc
+                                R1_sc_z= [(x_intersect-mu_sc)/sigma_sc]   
+                                if mu[1]<x_intersect:
+                                    print('PROBLEM WITH USING MU1 AS MAX!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1')
+                                    ISSUE_CHECK=ISSUE_CHECK+1
                         else:
-                            
                             print('Using cut offs at 1 2 and 3 std dev')
                         # for regular use
                             if len(X_sc_z[X_sc_z>3])>n_subjects_per_z:
