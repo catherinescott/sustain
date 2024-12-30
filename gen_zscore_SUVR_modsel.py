@@ -58,9 +58,9 @@ ISSUE_CHECK = 0
 # PVC_flags = ['pvc-' ,'']
 # data_merge_opts = ['baseline']#['followupplus', 'baseline', 'baselineplus', 'all'] 
 
-ref_regions = ['gm-cereb','cereb'] #['cereb']#
-PVC_flags = ['pvc-' ,'']#['pvc-' ,'']
-data_merge_opts = ['baseline', 'baselineplus', 'followupplus', 'all']  #['followupplus', 'baseline', 'baselineplus', 'all'] 
+ref_regions = ['cereb']#['gm-cereb','cereb'] #['cereb']#
+PVC_flags = ['pvc-']#['pvc-' ,'']
+data_merge_opts = ['followupplus'] #['baseline', 'baselineplus', 'followupplus', 'all']  #['followupplus', 'baseline', 'baselineplus', 'all'] 
 #include_biomarker_list = [['amyloid','flow'],['flow'],['amyloid']]#[['flow'],['amyloid'],['flow','amyloid']]
 params = ['amyloid','flow']
 
@@ -71,8 +71,8 @@ mean_array[:] = np.nan
 # step 1) read in relevent csv's----------------------------------------------------------------
 
 image_counter = 0
-path_cmmt = '_noBIC_amyloidsingle' #'_single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
-# '_noBIC' doesnt do anything, it is just to show that I have removed the BIC threshold
+path_cmmt = '_noBIC_goldilocks' #'_single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
+# '_noBIC' doesnt do anything, it is just to show that I have removed the BIC threshold, '_goldilocks' means that the file containing the goldilocls params is used (pvc-cereb SC followupplus data only).
 
 for ref_region in ref_regions:
     for PVC_flag in PVC_flags:
@@ -93,9 +93,13 @@ for ref_region in ref_regions:
             outpath = out_folder+'/genZscoremodsel_out'+path_cmmt+'/'+PVC_flag+ref_region
             WMH_path = '/Users/catherinescott/Documents/python_IO_files/input_csv_files/WMH'
             supercontrol_path = '/Users/catherinescott/Documents/python_IO_files/input_csv_files/supercontrol'
+            figures_path = outpath+'/figures'
             
             if not os.path.exists(outpath):
                 os.makedirs(outpath)
+            if not os.path.exists(figures_path):
+                os.makedirs(figures_path)                
+            
                 
             #load in all data from csv
             df = pd.read_csv(os.path.join(datapath, desc+'_sustain_raw.csv'))
@@ -247,7 +251,7 @@ for ref_region in ref_regions:
                         _ = plt.ylabel('Probability density')  
                         _ = plt.title('GMM '+str(components)+
                                           ' comp '+PVC_flag+ref_region+'_'+ data_merge_opt+'(BIC='+str(round(gmm.bic(X),1))+', AIC='+str(round(gmm.aic(X),1))+')')                        
-                        plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'.pdf'))
+                        plt.savefig(os.path.join(figures_path,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'.pdf'))
                         
 
                         image_counter = image_counter+1
@@ -279,7 +283,7 @@ for ref_region in ref_regions:
                         df_zmax.at[df_zmax.loc[df_zmax['Region'] == region].index[0],param+' z']='NaN'
                         # _ = plt.xlabel('EXCLUDED '+region+' '+param+' (BIC diff= '+str(round(abs(BIC[1]-BIC[0]),1))+')') 
                         _ = plt.xlabel('EXCLUDED '+region+' '+param+' (%above thresh= '+str(round(percent_above_thresh,1))+')') 
-                        plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'.pdf'))
+                        plt.savefig(os.path.join(figures_path,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'.pdf'))
                         
                         # #add what it would look like usng the supercontrol fit
                         # _ = plt.plot(grid, single_pdf(grid, mu_sc, sigma_sc, pi_sc, 0),'--',c = cmap(i+2), label='group SC')
@@ -291,7 +295,7 @@ for ref_region in ref_regions:
                         mean_array[region_names.index(region),:,PVC_flags.index(PVC_flag),ref_regions.index(ref_region), params.index(param),data_merge_opts.index(data_merge_opt)] = [mu[0],mu[1],sigma[0],sigma[1]]
                         #_ = plt.xlabel(region+' '+param+' (BIC diff= '+str(round(abs(BIC[1]-BIC[0]),1))+')') 
                         _ = plt.xlabel(region+' '+param+' (%above thresh= '+str(round(percent_above_thresh,1))+')') 
-                        plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'.pdf'))                        
+                        plt.savefig(os.path.join(figures_path,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'.pdf'))                        
                         
                         # #add what it would look like usng the supercontrol fit
                         # _ = plt.plot(grid, single_pdf(grid, mu_sc, sigma_sc, pi_sc, 0),'--',c = cmap(i+2), label='group SC')
@@ -307,9 +311,9 @@ for ref_region in ref_regions:
                     
                         df_out[region+'_'+param+'_suvr'] = X
                         if param == 'flow':
-                            X_z = -1*(X-mu[0])/sigma[0]
+                            X_z = np.round(-1*(X-mu[0])/sigma[0],3)
                         else:
-                            X_z = 1*(X-mu[0])/sigma[0]
+                            X_z = np.round(1*(X-mu[0])/sigma[0],3)
                         df_out[region+'_'+param+'_z']= X_z #(X-mu[0])/sigma[0]
                                               
             
@@ -346,9 +350,9 @@ for ref_region in ref_regions:
                                     R1_z= [1]     
                             else:
                                 print('using single cut off at GMM intersection, max at mean of mu[1] for amyloid')
-                                R1_max = (mu[1]-mu[0])/sigma[0]
-                                R1_z= [(x_intersect-mu[0])/sigma[0]]  
-                                if mu[1]<x_intersect:
+                                R1_max = np.round((mu[1]-mu[0])/sigma[0],3)
+                                R1_z= [np.round((x_intersect-mu[0])/sigma[0],3)]  
+                                if mu[0]>x_intersect:
                                     print('PROBLEM WITH USING MU1 AS MAX!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1')
                                     ISSUE_CHECK=ISSUE_CHECK+1
                         else:
@@ -396,7 +400,7 @@ for ref_region in ref_regions:
                         _ = plt.plot(grid, single_pdf(grid, mu_sc, sigma_sc, pi_sc, 0),'--',c = cmap(i+2), label='group SC')
                         _ = plt.legend(loc='upper right')
                         _ = plt.xlabel('EXCLUDED '+region+' '+param+' (% above thresh= '+str(round(percent_above_thresh,1))+')') 
-                        plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'_SC.pdf'))
+                        plt.savefig(os.path.join(figures_path,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'_SC.pdf'))
                     else: # more outside 2 SD than by chnace
                         print(region+' '+param+' INCLUDED base on 2 SD')
                         #mean_array[region_names.index(region),:,PVC_flags.index(PVC_flag),ref_regions.index(ref_region), params.index(param),data_merge_opts.index(data_merge_opt)] = [mu[0],mu[1],sigma[0],sigma[1]]
@@ -405,7 +409,7 @@ for ref_region in ref_regions:
                         _ = plt.plot(grid, single_pdf(grid, mu_sc, sigma_sc, pi_sc, 0),'--',c = cmap(i+2), label='group SC')
                         _ = plt.legend(loc='upper right')
                         _ = plt.xlabel(region+' '+param+' (% above thresh= '+str(round(percent_above_thresh,1))+')') 
-                        plt.savefig(os.path.join(outpath,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'_SC.pdf'))
+                        plt.savefig(os.path.join(figures_path,'GMM_'+region+'_'+ param+'_'+str(components)+'component_'+desc+'_SC.pdf'))
                         
             # step 3) if the region is INCLUDED calculate the z-score for all of the subjects
             
@@ -416,9 +420,9 @@ for ref_region in ref_regions:
                     
                         df_sc_out[region+'_'+param+'_suvr'] = X
                         if param == 'flow':
-                            X_sc_z = -1*(X-mu_sc)/sigma_sc
+                            X_sc_z = np.round(-1*(X-mu_sc)/sigma_sc,3)
                         else:
-                            X_sc_z = 1*(X-mu_sc)/sigma_sc
+                            X_sc_z = np.round(1*(X-mu_sc)/sigma_sc,3)
                         df_sc_out[region+'_'+param+'_z']= X_sc_z #(X-mu[0])/sigma[0]
                                               
             
@@ -434,6 +438,39 @@ for ref_region in ref_regions:
                             #when path_cmmt = 'single'
                             R1_sc_max = 3
                             R1_sc_z= [2]    
+                        elif '_goldilocks' in path_cmmt:
+                            
+                            #check for goldilocks file
+                            #'/Users/catherinescott/Documents/python_IO_files/sustain_test/SuStaIn_out/genZscoremodsel_out_noBIC/pvc-cereb/zscore_allregions_1946AVID2YOADSUVR_v1-pvc-cereb_followupplus_SC_goldilocks_zlevels.csv'
+                            goldilocks_zlevels_path = outpath+'/zscore_allregions_'+desc+'_SC_goldilocks_zlevels.csv'
+                            
+                            if os.path.exists(goldilocks_zlevels_path):
+                                print('Using goldilocks file')
+                                goldilocks_zlevels = pd.read_csv(goldilocks_zlevels_path)
+                                goldilocks_zlevels_values =goldilocks_zlevels[region+'_'+param+'_z']
+                                
+                                print('len(X_z[X_z>'+str(goldilocks_zlevels_values[2])+']):'+str(len(X_sc_z[X_sc_z>goldilocks_zlevels_values[2]])))
+                                print('len(X_z[X_z>'+str(goldilocks_zlevels_values[1])+']):'+str(len(X_sc_z[X_sc_z>goldilocks_zlevels_values[1]])))
+                                print('len(X_z[X_z>'+str(goldilocks_zlevels_values[0])+']):'+str(len(X_sc_z[X_sc_z>goldilocks_zlevels_values[0]])))                                 
+                                                               
+                                
+                                if len(X_sc_z[X_sc_z>goldilocks_zlevels_values[2]])>n_subjects_per_z:
+                                    R1_sc_max = goldilocks_zlevels_values[3]
+                                    R1_sc_z = [goldilocks_zlevels_values[0],goldilocks_zlevels_values[1],goldilocks_zlevels_values[2]]
+                                elif len(X_sc_z[X_sc_z>goldilocks_zlevels_values[1]])>n_subjects_per_z:
+                                    R1_sc_max = goldilocks_zlevels_values[2]
+                                    R1_sc_z = [goldilocks_zlevels_values[0],goldilocks_zlevels_values[1]]
+                                else:
+                                    R1_sc_max = goldilocks_zlevels_values[1]
+                                    R1_sc_z= [goldilocks_zlevels_values[0]]      
+                                
+                            else:
+                            
+                                print('Goldilocks file not found, using single cut off at 2SD, max 3SD')
+                                #when path_cmmt = 'single'
+                                R1_sc_max = 3
+                                R1_sc_z= [2]                                
+                            
                         elif '_amyloidsingle' in path_cmmt:
                             if param == 'flow':
                                 print('Using cut offs at 1 2 and 3 std dev for flow')  
@@ -448,10 +485,10 @@ for ref_region in ref_regions:
                                     R1_sc_z= [1]      
                             else:
                                 print('using single cut off at GMM intersection, max at mean of mu[1] for amyloid')
-                                R1_sc_max = (mu[1]-mu_sc)/sigma_sc
-                                R1_sc_z= [(x_intersect-mu_sc)/sigma_sc]   
-                                if mu[1]<x_intersect:
-                                    print('PROBLEM WITH USING MU1 AS MAX!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1')
+                                R1_sc_max = np.round((mu[1]-mu_sc[0])/sigma_sc[0],3)
+                                R1_sc_z= [np.round((x_intersect-mu_sc[0])/sigma_sc[0],3)]   
+                                if mu_sc[0]>x_intersect:
+                                    print('PROBLEM WITH USING mu_sc AS MAX!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1')
                                     ISSUE_CHECK=ISSUE_CHECK+1
                         else:
                             print('Using cut offs at 1 2 and 3 std dev')
