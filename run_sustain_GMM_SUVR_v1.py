@@ -33,7 +33,7 @@ PVC_flags = ['pvc-']#['pvc-' ,'']
 data_merge_opts = ['followupplus']#['baseline', 'baselineplus', 'followupplus', 'all']  #['followupplus', 'baseline', 'baselineplus', 'all'] 
 include_biomarker_list = [['amyloid','flow'],['flow'],['amyloid']]#[['flow'],['amyloid'],['flow','amyloid']]
 z_method = '' # '_SC' or '' for supercontrol derfined z scores or GMM defined respectively
-path_cmmt = '_noBIC_amyloidsingle' #'_single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
+path_cmmt = '_noBIC_goldilocks' #'_single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
 cross_val = 'no' # 'yes' will do cross validation, any other response wont
 
 
@@ -257,7 +257,10 @@ for ref_region in ref_regions:
                     
                 SuStaInLabels = region_names
                 
-                data[data>20]=20.00
+                if '_goldilocks' not in path_cmmt:
+                    print('Thresholding the data at max z=20')
+                    # this threshold the max z-score at 20 as when using the default sustain params it will crash otherwise
+                    data[data>20]=20.00
                 
                 # Run SuStaIn ---------------------------------------------------------------
                 sustain_input = pySuStaIn.ZscoreSustain(data, #size M subjects by N biomarkers, data must be z-scored
