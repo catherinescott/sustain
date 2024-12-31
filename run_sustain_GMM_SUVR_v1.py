@@ -16,6 +16,7 @@ import pickle
 from pathlib import Path
 import seaborn as sns
 import sklearn.model_selection
+import copy
 
 
 #determining regions and biomarkers to include in modelling (will only be included if there is also sufficient data i.e 2 component GMM)
@@ -32,13 +33,13 @@ ref_regions = ['cereb']#['gm-cereb','cereb'] #['cereb']#
 PVC_flags = ['pvc-']#['pvc-' ,'']
 data_merge_opts = ['followupplus']#['baseline', 'baselineplus', 'followupplus', 'all']  #['followupplus', 'baseline', 'baselineplus', 'all'] 
 include_biomarker_list = [['amyloid','flow'],['flow'],['amyloid']]#[['flow'],['amyloid'],['flow','amyloid']]
-z_method = '' # '_SC' or '' for supercontrol derfined z scores or GMM defined respectively
+z_method = ''#'_SC' # '_SC' or '' for supercontrol derfined z scores or GMM defined respectively
 path_cmmt = '_noBIC_goldilocks' #'_single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
-cross_val = 'no' # 'yes' will do cross validation, any other response wont
+cross_val = 'yes' # 'yes' will do cross validation, any other response wont
 
 
 #remove subjects which were previously put in stage 0?
-remove_zero_subs = 'no'#'yes' #either yes or no
+remove_zero_subs = 'yes'#'yes' #either yes or no
 
 # ref_regions = ['gm-cereb'] #['cereb']#
 # PVC_flags = ['pvc-']#['pvc-' ,'']
@@ -323,8 +324,20 @@ for ref_region in ref_regions:
                     plt.savefig(os.path.join(output_folder,'hist_subtype_'+ str(s)+out_desc+'.pdf'))
                     
                     #plotting the positional variance diagram
+                    #due to using zscore levels not equal to 1,2,3 the positional variance plotting function doesnt have enough colours to represent all the levels
+                    #for plotting tell the algorithm that the levels are 1,2,3.
+                    sustain_input_plot=copy.deepcopy(sustain_input)
+                    Z_vals_plot = np.zeros(sustain_input_plot.Z_vals.shape)
+                    for i in range(Z_vals_plot.shape[1]):
+                        Z_vals_plot[:,i]=i+1
+                    #need to make sure that for any biomarkers which dont have 3 levels, the missing levels are replaced with zeros
+                    threshold_array = sustain_input.Z_vals.copy()
+                    threshold_array[threshold_array>0.0001]=1.0
+                    threshold_array[threshold_array<0.0001]=0.0                    
+                    sustain_input_plot.Z_vals=Z_vals_plot*threshold_array
+
                     _ = plt.figure(2)
-                    pySuStaIn.ZscoreSustain._plot_sustain_model(sustain_input,samples_sequence,samples_f,len(data),biomarker_labels=SuStaInLabels)
+                    pySuStaIn.ZscoreSustain._plot_sustain_model(sustain_input_plot,samples_sequence,samples_f,len(data),biomarker_labels=SuStaInLabels)
                     _=plt.suptitle('ref: '+ref_region+', PVC: '+PVC_flag+', datamerge: '+data_merge_opt+' biomarkers:'+' '.join(include_biomarkers))
                     plt.savefig(os.path.join(output_folder,'SuStaIn_output_subtype_'+ str(s)+out_desc+'.pdf'))
                     
@@ -447,7 +460,7 @@ for ref_region in ref_regions:
                     #Another useful output of the cross-validation that you can look at are positional variance diagrams averaged across cross-validation folds. These give you an idea of the variability in the progression patterns across different training datasets
                     #this part estimates cross-validated positional variance diagrams
                     for i in range(N_S_max):
-                        sustain_input.combine_cross_validated_sequences(i+1, N_folds)
+                        #sustain_input.combine_cross_validated_sequences(i+1, N_folds)
                         
                         N_S_selected = i+1#2
                         
@@ -455,8 +468,8 @@ for ref_region in ref_regions:
                     #pySuStaIn.ZscoreSustain._plot_sustain_model(sustain_input,samples_sequence,samples_f,M,subtype_order=(0,1))
                     #_ = plt.suptitle('SuStaIn output')
                         plt.figure(4+i)
-                        sustain_input.combine_cross_validated_sequences(N_S_selected, N_folds)
-                        _ = plt.suptitle('Cross-validated SuStaIn output')
+                        sustain_input_plot.combine_cross_validated_sequences(N_S_selected, N_folds)
+                        #_ = plt.suptitle('Cross-validated SuStaIn output')
                         plt.savefig(os.path.join(output_folder,'CV_positionalvariance_s'+str(N_S_selected)+out_desc+'.pdf'))
                         
     
