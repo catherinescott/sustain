@@ -29,17 +29,17 @@ include_regions = ['frontal','parietal','precuneus','occipital','temporal','insu
 # data_merge_opts = ['baseline', 'baselineplus'] #['followupplus', 'baseline', 'baselineplus', 'all'] 
 # include_biomarker_list = [['amyloid','flow'],['amyloid'],['flow']]#[['flow'],['amyloid'],['flow','amyloid']]
 
-ref_regions = ['cereb']#['gm-cereb','cereb'] #['cereb']#
+ref_regions = ['gm-cereb']#['gm-cereb','cereb'] #['cereb']#
 PVC_flags = ['pvc-']#['pvc-' ,'']
-data_merge_opts = ['followupplus']#['baseline', 'baselineplus', 'followupplus', 'all']  #['followupplus', 'baseline', 'baselineplus', 'all'] 
-include_biomarker_list = [['amyloid','flow'],['flow'],['amyloid']]#[['flow'],['amyloid'],['flow','amyloid']]
-z_method = ''#'_SC' # '_SC' or '' for supercontrol derfined z scores or GMM defined respectively
-path_cmmt = '_noBIC_goldilocks' #'_single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
-cross_val = 'yes' # 'yes' will do cross validation, any other response wont
+data_merge_opts = ['']#['baseline', 'baselineplus', 'followupplus', 'all']  #['followupplus', 'baseline', 'baselineplus', 'all'] 
+include_biomarker_list = [['amyloid']]#[['amyloid','flow'],['flow'],['amyloid']]#[['flow'],['amyloid'],['flow','amyloid']]
+z_method = '' # '_SC' or '' for supercontrol derfined z scores or GMM defined respectively
+path_cmmt = '_AAIC'#'_noBIC_goldilocks' #'_single' # single indicates that a single z-score level is used. set intersection of GMM as the z-scre level and m2 as the max
+cross_val = 'no' # 'yes' will do cross validation, any other response wont
 
 
 #remove subjects which were previously put in stage 0?
-remove_zero_subs = 'yes'#'yes' #either yes or no
+remove_zero_subs = 'no'#'yes' #either yes or no
 
 # ref_regions = ['gm-cereb'] #['cereb']#
 # PVC_flags = ['pvc-']#['pvc-' ,'']
@@ -75,8 +75,11 @@ for ref_region in ref_regions:
                     out_desc = in_desc+'-GMM_'+'_'.join(include_biomarkers)+'_'+test_run+'_'+cmmt+z_method+path_cmmt+'_v1'
 
                 #define paths
-                out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
-                datapath = out_folder+'/genZscoremodsel_out'+path_cmmt+'/'+PVC_flag+ref_region
+                out_folder = '/Users/catherinescott/Documents/python_IO_files/sustain_test/SuStaIn_out'
+                if path_cmmt=='_AAIC':
+                    datapath = out_folder+'/genZscoreAAIC_out'+'/'+PVC_flag+ref_region
+                else:
+                    datapath = out_folder+'/genZscoremodsel_out'+path_cmmt+'/'+PVC_flag+ref_region
                 # if remove_zero_subs=='yes':
                 #     zero_subs_cmmt='_removezero'
                 # else:
@@ -99,7 +102,10 @@ for ref_region in ref_regions:
                 
                 #reading in the z-score data
                 #datapath = '/Users/catherinescott/Documents/SuStaIn_out'
-                csvfile_in = datapath+'/zscore_allregions_'+in_desc+'-'+cmmt+z_method+'.csv'
+                if path_cmmt=='_AAIC':
+                    csvfile_in = datapath+'/zscore_allregions_2component_'+in_desc+'-amyloid_co97.5th'+'.csv'
+                else:
+                    csvfile_in = datapath+'/zscore_allregions_'+in_desc+'-'+cmmt+z_method+'.csv'
                 
                 
                 #load in data (size M subjects by N biomarkers, data must be z-scored)
@@ -126,7 +132,11 @@ for ref_region in ref_regions:
                 #region_names2 = list(set(df_cols_z).intersection(region_names))
                 df = pd.read_csv(csvfile_in, usecols=region_names)[region_names]
                 subjs= pd.read_csv(csvfile_in, usecols=['Subject'])
-                status= pd.read_csv(csvfile_in, usecols=['status'])
+                if path_cmmt=='_AAIC':
+                    status= pd.read_csv(csvfile_in, usecols=['Status']) 
+                    status.rename(columns={'Status':'status'},inplace=True)
+                else:
+                    status= pd.read_csv(csvfile_in, usecols=['status'])
                 
                 data = df.to_numpy()
                 #remove nans
@@ -191,7 +201,11 @@ for ref_region in ref_regions:
                                         
                 
                 ##set params------------------------------------------------------------------
-                z_lims_csv = datapath+'/zmax_allregions_'+in_desc+'-'+cmmt+z_method+'.csv' 
+                if path_cmmt=='_AAIC':
+                    z_lims_csv = datapath+'/zmax_allregions_2component_'+in_desc+'-amyloid_co97.5th'+'.csv'  
+                    
+                else:   
+                    z_lims_csv = datapath+'/zmax_allregions_'+in_desc+'-'+cmmt+z_method+'.csv' 
                 z_lims_df = pd.read_csv(z_lims_csv)
                 #only include the listed regions
                 z_lims_df = z_lims_df[z_lims_df['Region'].isin(include_regions)]
