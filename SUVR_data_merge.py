@@ -33,10 +33,17 @@ components_to_fit = 2
 plot_centile = 97.5
 cutoff_centile = 97.5
 
+#opt_10iPSFnoF
+# ref_regions = ['gm-cereb']#['cereb', 'gm-cereb']
+# PVC_flags = ['pvc-']#['pvc-' ,'']
+# data_merge_opts = ['baseline']#['followupplus', 'baseline', 'baselineplus', 'all'] 
+# recon = 'opt_10iPSFnoF' # 'opt_4i2mm'
+
+#opt_412mm
 ref_regions = ['cereb', 'gm-cereb']
 PVC_flags = ['pvc-' ,'']
 data_merge_opts = ['followupplus', 'baseline', 'baselineplus', 'all'] 
-
+recon = 'opt_4i2mm'
 
 for ref_region in ref_regions:
     for PVC_flag in PVC_flags:
@@ -55,8 +62,8 @@ for ref_region in ref_regions:
             
             #define paths
             out_folder = '/Users/catherinescott/Documents/python_IO_files/SuStaIn_test/SuStaIn_out'
-            datapath = '/Users/catherinescott/Documents/python_IO_files/input_csv_files/SUVR_spreadsheets/opt_4i2mm/suvr-'+PVC_flag+'nipet-pct-gif-'+ref_region
-            outpath = out_folder+'/SUVR_data_merge_out/'+PVC_flag+ref_region
+            datapath = '/Users/catherinescott/Documents/python_IO_files/input_csv_files/SUVR_spreadsheets/'+recon+'/suvr-'+PVC_flag+'nipet-pct-gif-'+ref_region
+            outpath = out_folder+'/SUVR_data_merge_out/'+recon+'/'+PVC_flag+ref_region
             if not os.path.exists(outpath):
                 os.makedirs(outpath)
                 
