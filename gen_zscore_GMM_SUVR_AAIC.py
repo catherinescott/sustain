@@ -16,6 +16,7 @@ Created on Fri Sep 16 14:46:55 2022
 #didnt change the version but on 26/1/24 I changed the number of subject per z level to 15
 #and added plots
 
+# run SUVR_data_merge.py prior to this code
 
 from sklearn.mixture import GaussianMixture as GMM
 import numpy as np
@@ -37,48 +38,50 @@ components_to_fit = 2
 plot_centile = 97.5
 cutoff_centile = 97.5
 
-
 #input/output-----------------------------------------------------------------
 #description to add to outputs
 version_no = '1'
-desc = '1946AVID2YOADSUVR_v'+version_no+'-'+param #1946-srtm-cleanandAVID27-'+param
+desc = '1946AVID2YOADSUVR_v'+version_no+'-'#+param #1946-srtm-cleanandAVID27-'+param
 ref_region = 'gm-cereb'
 PVC_flag = 'pvc-'
+recon='opt_10iPSFnoF' #'opt_4i2mm' #'opt_10iPSFnoF' #this is the PET recon used which tells it where to get the SUVR spreadsheet from (needs to match folder name)
+data_merge_opt='baseline'
 
 #define paths
 out_folder = '/Users/catherinescott/Documents/python_IO_files/sustain_test/SuStaIn_out'
-datapath = '/Users/catherinescott/Documents/python_IO_files/input_csv_files/SUVR_spreadsheets/opt_10iPSFnoF/csv_to_use'
-outpath = out_folder+'/genZscoreAAIC_out'+'/'+PVC_flag+ref_region
+datapath = '/Users/catherinescott/Documents/python_IO_files/sustain_test/SuStaIn_out/SUVR_data_merge_out/'+recon
+
+outpath = out_folder+'/genZscoreAAIC_out/'+recon+'/'+PVC_flag+ref_region
 if not os.path.exists(outpath):
     os.makedirs(outpath)
 
-#load in the csv file comtaining the suvr parameters for each subject
-#assuming that you want to use all the csv files in the datapath folder
-#and early and late csvs are in the same folder
-#datacols=['Subject', 'Session','ROI',param+'_srtm', 'R1_srtm']
-datacols = ['subject']+region_names
-all_early_csv_files = glob.glob(os.path.join(datapath, "ses-baseline_0p0to2*.csv"))
-all_late_csv_files = glob.glob(os.path.join(datapath, "ses-baseline_40p0to*.csv"))
+# #load in the csv file comtaining the suvr parameters for each subject
+# #assuming that you want to use all the csv files in the datapath folder
+# #and early and late csvs are in the same folder
+# #datacols=['Subject', 'Session','ROI',param+'_srtm', 'R1_srtm']
+# datacols = ['subject']+region_names
+# all_early_csv_files = glob.glob(os.path.join(datapath, "ses-baseline_0p0to2*.csv"))
+# all_late_csv_files = glob.glob(os.path.join(datapath, "ses-baseline_40p0to*.csv"))
 
-#read in early files and rename suvr cols
-#*note that SUVR files have lowercase 's' for subject, changed to uppercase to match kinetic params
-df_orig = pd.concat((pd.read_csv(f, skiprows=0,usecols=datacols) for f in all_early_csv_files), ignore_index=True)
-#remove nans
-df_early = df_orig.dropna()
-#add the name flow to all columns to distinguish from amyloid
-df_early = df_early.add_suffix('_flow')
-#remove flow from subject column and change to capital S
-df_early.rename(columns={'subject_flow':'Subject'}, inplace=True)
+# #read in early files and rename suvr cols
+# #*note that SUVR files have lowercase 's' for subject, changed to uppercase to match kinetic params
+# df_orig = pd.concat((pd.read_csv(f, skiprows=0,usecols=datacols) for f in all_early_csv_files), ignore_index=True)
+# #remove nans
+# df_early = df_orig.dropna()
+# #add the name flow to all columns to distinguish from amyloid
+# df_early = df_early.add_suffix('_flow')
+# #remove flow from subject column and change to capital S
+# df_early.rename(columns={'subject_flow':'Subject'}, inplace=True)
 
-#read in late files and rename suvr cols
-df_orig = pd.concat((pd.read_csv(f, skiprows=0,usecols=datacols) for f in all_late_csv_files), ignore_index=True)
-#remove nans
-df_late = df_orig.dropna()
-df_late = df_late.add_suffix('_amyloid')
-df_late.rename(columns={'subject_amyloid':'Subject'}, inplace=True)
+# #read in late files and rename suvr cols
+# df_orig = pd.concat((pd.read_csv(f, skiprows=0,usecols=datacols) for f in all_late_csv_files), ignore_index=True)
+# #remove nans
+# df_late = df_orig.dropna()
+# df_late = df_late.add_suffix('_amyloid')
+# df_late.rename(columns={'subject_amyloid':'Subject'}, inplace=True)
 
 #merge flow and amyloid markers into single dataframe. Get rid of any that dont have both biomarkers
-df = pd.merge(df_early, df_late, on='Subject')
+df = pd.read_csv(datapath+'/'+PVC_flag+ref_region+'/'+desc+PVC_flag+ref_region+'_'+data_merge_opt+'_sustain_raw.csv')#pd.merge(df_early, df_late, on='Subject')
 
 #estimating Z-scores---------------------------------------------------------
 
